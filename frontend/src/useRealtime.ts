@@ -12,6 +12,7 @@ export function useRealtime(callbacks: { board: (value: Board) => void; members:
   function connect() {
     if (stopped) return
     clearTimeout(retry)
+    if (!navigator.onLine) { status.value = 'offline'; return }
     status.value = 'connecting'
     const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/ws`)
     socket = ws
@@ -24,7 +25,7 @@ export function useRealtime(callbacks: { board: (value: Board) => void; members:
       }, 15000)
     }
     ws.onmessage = event => {
-      if (socket !== ws || stopped) return
+      if (socket !== ws || stopped || !navigator.onLine) return
       try {
         const message = JSON.parse(event.data)
         lastSeen = Date.now()
@@ -52,10 +53,11 @@ export function useRealtime(callbacks: { board: (value: Board) => void; members:
     connect()
   }
   function online() { if (status.value !== 'online') reconnect() }
-  onMounted(() => { connect(); window.addEventListener('online', online) })
+  function offline() { status.value = 'offline'; clearInterval(heartbeat); socket?.close(); callbacks.members([]) }
+  onMounted(() => { connect(); window.addEventListener('online', online); window.addEventListener('offline', offline) })
   onBeforeUnmount(() => {
     stopped = true; clearTimeout(retry); clearInterval(heartbeat); socket?.close()
-    callbacks.members([]); window.removeEventListener('online', online)
+    callbacks.members([]); window.removeEventListener('online', online); window.removeEventListener('offline', offline)
   })
   return { status, reconnect }
 }
