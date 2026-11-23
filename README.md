@@ -21,6 +21,10 @@
 
 不提供注册。首次放入八条原型评论，在线成员来自真实连接，总数与情绪占比实时计算。手机可左右滑动浏览画布。
 
+![自由评论墙](docs/screenshots/comment-wall.png)
+
+![按情绪整理的个人视图](docs/screenshots/arranged-wall.png)
+
 ## 功能范围
 
 - 账号密码登录、自动登录、密码显示切换、错误提示和退出。
@@ -91,6 +95,8 @@ npx --yes --package @playwright/cli@0.1.25 playwright-cli -s=wall run-code --fil
 该流程实际操作两个用户，覆盖错误登录、六种富文本格式、内容编辑、权限、点赞、拖动、实时同步、断网补齐、多标签页及七个响应式断点。它会创建少量带“验收”标记的评论，请在测试或演示环境执行。
 
 GitHub 自动检查运行后端测试、真实 PostgreSQL 集成、前端构建、生产容器构建和启动，并对容器执行双用户浏览器回归。分阶段提交和失败修复见[开发记录](docs/development.md)。
+
+交付压缩包内另附 `git-history.bundle`，可通过 `git clone git-history.bundle comment-wall-with-history` 恢复完整 Git 历史。
 
 ## 实现与取舍
 
