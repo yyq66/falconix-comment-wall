@@ -68,3 +68,12 @@ class InteractionTests(unittest.TestCase):
     def test_move_invalid_coordinates_and_missing_note(self):
         self.assertEqual(self.client.patch(f"/api/comments/{self.id}/position", json={"x": 6000, "y": 300, "position_version": 1}).status_code, 422)
         self.assertEqual(self.client.put("/api/comments/missing/like", json={"liked": True}).status_code, 404)
+
+    def test_edit_reclassifies_and_keeps_shared_position(self):
+        url = f"/api/comments/{self.id}/content"
+        positive = self.client.patch(url, json={"content_html": "<p>感谢，非常好用</p>", "content_version": 1})
+        self.assertEqual(self.note(positive)["sentiment"], "positive")
+        negative = self.client.patch(url, json={"content_html": "<p>失望，太难用了</p>", "content_version": 2})
+        note = self.note(negative)
+        self.assertEqual(note["sentiment"], "negative")
+        self.assertEqual((note["x"], note["y"]), (120, 200))

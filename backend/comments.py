@@ -12,6 +12,7 @@ from sqlalchemy import select
 from .auth import public_user, require_user
 from .content import clean_content
 from .database import Comment, Like, User, WallState
+from .sentiment import classify
 
 router = APIRouter(prefix="/api", tags=["comments"])
 COLORS = ["#ebe0ff", "#dffce5", "#ffdee7", "#ffead2", "#cce9ff", "#fff7d1"]
@@ -99,7 +100,7 @@ async def create_comment(body: CreateBody, request: Request):
             seed = sum(body.request_id.encode())
             db.add(Comment(id=body.request_id, user_id=user.id, content_html=content_html, text=text,
                            x=body.x, y=body.y, rotation=[-10, -6, 6, 10][seed % 4],
-                           color=COLORS[seed % len(COLORS)], created_at=now, updated_at=now))
+                           color=COLORS[seed % len(COLORS)], sentiment=classify(text), created_at=now, updated_at=now))
             bump_revision(db)
             db.commit()
         return await publish_board(request)
@@ -120,6 +121,7 @@ async def edit_comment(comment_id: str, body: EditBody, request: Request):
                 raise HTTPException(409, "贴纸已在其他窗口修改，请重新打开后编辑")
             comment.content_html = content_html
             comment.text = text
+            comment.sentiment = classify(text)
             comment.content_version += 1
             comment.updated_at = int(time.time() * 1000)
             bump_revision(db)
@@ -130,6 +132,15 @@ async def edit_comment(comment_id: str, body: EditBody, request: Request):
 def initialize_wall(factory, demo=True):
     with factory() as db:
         if db.get(WallState, 1):
+            changed = False
+            for comment in db.scalars(select(Comment)):
+                sentiment = classify(comment.text)
+                if sentiment != comment.sentiment:
+                    comment.sentiment = sentiment
+                    changed = True
+            if changed:
+                bump_revision(db)
+                db.commit()
             return
         db.add(WallState(id=1, revision=0))
         if demo:
@@ -139,7 +150,7 @@ def initialize_wall(factory, demo=True):
                     html, text = clean_content("<p>" + item["text"] + "</p>")
                     now = int(time.time() * 1000) - (8-i) * 180000
                     db.add(Comment(id=f"seed-comment-{i+1:04}", user_id=item["user_id"], content_html=html, text=text,
-                                   x=item["x"], y=item["y"], rotation=item["rotation"], color=item["color"], created_at=now, updated_at=now))
+                                   x=item["x"], y=item["y"], rotation=item["rotation"], color=item["color"], sentiment=classify(text), created_at=now, updated_at=now))
         db.commit()
 
 
