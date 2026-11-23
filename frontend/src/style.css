@@ -1,0 +1,16 @@
+:root {
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  color: #000311;
+  background: #fafafb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+:focus-visible { outline: 3px solid #1677ff; outline-offset: 4px; }
+.canvas-shell { min-height: 100dvh; background-image: radial-gradient(#ededf0 1px, transparent 1px); background-size: 14px 14px; }
+.boot-state { position: absolute; top: 45%; width: 100%; text-align: center; color: #848691; }
