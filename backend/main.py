@@ -1,16 +1,54 @@
+from collections import defaultdict, deque
+from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlparse
 
+import bcrypt
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-app = FastAPI(title="实时评论墙", version="0.1.0")
+from .auth import router as auth_router, seed_users
+from .database import Base, open_database
 
 
-@app.get("/api/health")
-def health():
-    return {"status": "ok"}
+def create_app(database_url: str | None = None):
+    engine, factory = open_database(database_url)
+
+    @asynccontextmanager
+    async def lifespan(app):
+        Base.metadata.create_all(engine)
+        seed_users(factory)
+        yield
+        engine.dispose()
+
+    application = FastAPI(title="实时评论墙", version="0.1.0", lifespan=lifespan)
+    application.state.db = factory
+    application.state.login_attempts = defaultdict(deque)
+    application.state.dummy_hash = bcrypt.hashpw(b"invalid-password", bcrypt.gensalt()).decode()
+
+    @application.middleware("http")
+    async def same_origin(request, call_next):
+        origin = request.headers.get("origin")
+        if request.method in {"POST", "PATCH", "PUT", "DELETE"} and origin:
+            if urlparse(origin).netloc != request.headers.get("host"):
+                return JSONResponse({"detail": "不允许跨站操作"}, status_code=403)
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "same-origin"
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @application.get("/api/health")
+    def health():
+        return {"status": "ok"}
+
+    application.include_router(auth_router)
+    dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+    if dist.is_dir():
+        application.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
+    return application
 
 
-dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
-if dist.is_dir():
-    app.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
+app = create_app()
