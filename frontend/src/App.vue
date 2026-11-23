@@ -9,6 +9,7 @@ const user = ref<User | null>(null)
 const loading = ref(true)
 const showLogin = ref(false)
 const toast = ref('')
+const onlineMembers = ref<User[]>([])
 onMounted(async () => {
   try { user.value = await api<User>('/auth/me') } catch { /* A new visitor starts on the login screen. */ }
   finally { loading.value = false }
@@ -23,7 +24,7 @@ async function logout() { await api('/auth/logout', { method: 'POST' }); user.va
     <aside class="sidebar" aria-label="在线成员">
       <img src="/assets/logo.svg" class="brand-logo" alt="鹰眼智能" />
       <div class="sidebar-divider" />
-      <div class="members"><span v-if="user" class="member" :title="user.name"><img :src="user.avatar" :alt="user.name" /><i /></span></div>
+      <div class="members" :aria-label="`${onlineMembers.length} 人在线`"><span v-for="member in onlineMembers" :key="member.id" class="member" :title="`${member.name}${member.id === user?.id ? '（我）' : ''}`"><img :src="member.avatar" :alt="member.name" /><i /></span></div>
       <button v-if="user" class="account-button member" :title="`${user.name} · 点击退出登录`" aria-label="退出登录" @click="logout"><img :src="user.avatar" :alt="user.name" /><i /></button>
       <button v-else class="account-button anonymous" aria-label="登录账号" @click="showLogin = true"><Icon name="account" :size="20" /></button>
     </aside>
@@ -31,7 +32,7 @@ async function logout() { await api('/auth/logout', { method: 'POST' }); user.va
       <button v-if="!user && !loading" class="top-login primary-button" @click="showLogin = true"><Icon name="account" :size="16" /> 登录</button>
       <div v-if="!user && !loading" class="welcome-state"><h1>每一个想法，都值得被看见。</h1><p>登录后，点击画布留下你的建议。</p><button class="welcome-login" @click="showLogin = true">登录评论墙 <span aria-hidden="true">↗</span></button></div>
       <p v-if="loading" class="boot-state">正在连接评论墙…</p>
-      <Wall v-if="user" :key="user.id" :user="user" @expired="user = null; showLogin = true" @notify="notify" />
+      <Wall v-if="user" :key="user.id" :user="user" @expired="user = null; showLogin = true" @notify="notify" @members="value => onlineMembers = value" />
     </section>
     <LoginModal v-if="showLogin" @close="showLogin = false" @authenticated="authenticated" />
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>

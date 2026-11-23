@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from .auth import router as auth_router, seed_users
 from .database import Base, open_database
 from .comments import initialize_wall, router as comments_router
+from .realtime import Hub, router as realtime_router
 
 
 def create_app(database_url: str | None = None, seed_demo: bool | None = None):
@@ -29,6 +30,7 @@ def create_app(database_url: str | None = None, seed_demo: bool | None = None):
     application = FastAPI(title="实时评论墙", version="0.1.0", lifespan=lifespan)
     application.state.db = factory
     application.state.mutation_lock = asyncio.Lock()
+    application.state.hub = Hub()
     application.state.login_attempts = defaultdict(deque)
     application.state.dummy_hash = bcrypt.hashpw(b"invalid-password", bcrypt.gensalt()).decode()
 
@@ -51,6 +53,7 @@ def create_app(database_url: str | None = None, seed_demo: bool | None = None):
 
     application.include_router(auth_router)
     application.include_router(comments_router)
+    application.include_router(realtime_router)
     dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
     if dist.is_dir():
         application.mount("/", StaticFiles(directory=dist, html=True), name="frontend")

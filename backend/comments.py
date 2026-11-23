@@ -70,6 +70,12 @@ def bump_revision(db):
     state.revision += 1
 
 
+async def publish_board(request):
+    snapshot = board_snapshot(request.app)
+    await request.app.state.hub.broadcast({"type": "board", "board": snapshot})
+    return snapshot
+
+
 @router.get("/board")
 def get_board(request: Request):
     require_user(request)
@@ -96,7 +102,7 @@ async def create_comment(body: CreateBody, request: Request):
                            color=COLORS[seed % len(COLORS)], created_at=now, updated_at=now))
             bump_revision(db)
             db.commit()
-        return board_snapshot(request.app)
+        return await publish_board(request)
 
 
 @router.patch("/comments/{comment_id}/content")
@@ -118,7 +124,7 @@ async def edit_comment(comment_id: str, body: EditBody, request: Request):
             comment.updated_at = int(time.time() * 1000)
             bump_revision(db)
             db.commit()
-        return board_snapshot(request.app)
+        return await publish_board(request)
 
 
 def initialize_wall(factory, demo=True):
@@ -155,7 +161,7 @@ async def move_comment(comment_id: str, body: MoveBody, request: Request):
             comment.updated_at = int(time.time() * 1000)
             bump_revision(db)
             db.commit()
-        return board_snapshot(request.app)
+        return await publish_board(request)
 
 
 @router.put("/comments/{comment_id}/like")
@@ -173,4 +179,4 @@ async def like_comment(comment_id: str, body: LikeBody, request: Request):
                 db.delete(like)
                 bump_revision(db)
             db.commit()
-        return board_snapshot(request.app)
+        return await publish_board(request)

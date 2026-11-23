@@ -85,7 +85,10 @@ input::placeholder { color: #b7b9c1; }
 .wall-tools > button { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .wall-tools > button:hover { background: #f5f6fa; }
 .wall-tools > button.active { background: #1677ff; color: white; }
-.save-status { position: fixed; top: 16px; right: 24px; color: #b7b9c1; font-size: 12px; margin: 0; pointer-events: none; }
+.save-status { position: fixed; top: 16px; right: 24px; color: #848691; font-size: 12px; margin: 0; display: flex; align-items: center; gap: 6px; z-index: 9; }
+.connection-dot { width: 6px; height: 6px; border-radius: 50%; background: #29c759; }
+.disconnected .connection-dot { background: #ffb44d; }
+.disconnected button { color: #1677ff; padding: 3px; }
 .tool-hint { position: fixed; bottom: 108px; left: calc(50% + 36px); transform: translateX(-50%); border-radius: 8px; background: white; box-shadow: 0 2px 12px #0003110b; padding: 8px 14px; font-size: 12px; color: #848691; z-index: 10; white-space: nowrap; pointer-events: none; }
 .empty-wall { position: absolute; top: 42%; left: 50%; transform: translate(-50%,-50%); text-align: center; pointer-events: none; white-space: nowrap; }
 .empty-wall p { color: #565a68; font-size: 20px; }

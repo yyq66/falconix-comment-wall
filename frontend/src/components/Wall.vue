@@ -3,9 +3,10 @@ import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { api, ApiError, type Board, type Note, type User } from '../api'
 import Icon from './Icon.vue'
 import NoteEditor from './NoteEditor.vue'
+import { useRealtime } from '../useRealtime'
 
 const props = defineProps<{ user: User }>()
-const emit = defineEmits<{ expired: []; notify: [text: string] }>()
+const emit = defineEmits<{ expired: []; notify: [text: string]; members: [value: User[]] }>()
 const board = ref<Board>({ revision: -1, comments: [] })
 const pending = ref(true)
 const loadError = ref('')
@@ -22,6 +23,11 @@ const busyLikes = ref(new Set<string>())
 const busyMoves = ref(new Set<string>())
 const dragging = ref<string | null>(null)
 let drag: { id: string; startX: number; startY: number; x: number; y: number; version: number } | null = null
+const { status, reconnect } = useRealtime({
+  board: value => { applyBoard(value); pending.value = false; loadError.value = '' },
+  members: value => emit('members', value),
+  expired: () => emit('expired'),
+})
 let observer: ResizeObserver | undefined
 onMounted(() => {
   load()
@@ -35,7 +41,12 @@ async function load() {
   catch (e) { if (e instanceof ApiError && e.status === 401) emit('expired'); else loadError.value = (e as Error).message }
   finally { pending.value = false }
 }
-function applyBoard(value: Board) { if (value.revision >= board.value.revision) board.value = value }
+function applyBoard(value: Board) {
+  if (value.revision < board.value.revision) return
+  const current = drag && board.value.comments.find(n => n.id === drag!.id)
+  if (current) value.comments = value.comments.map(note => note.id === current.id ? { ...note, x: current.x, y: current.y } : note)
+  board.value = value
+}
 function addAt(event: MouseEvent) {
   if (tool.value !== 'add' || pending.value) return
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
@@ -112,7 +123,7 @@ function nudge(event: KeyboardEvent, note: Note) {
       </div>
     </div>
     <p class="wall-count">共反馈 <strong>{{ board.comments.length }}</strong> 条建议</p>
-    <p v-if="savedAt" class="save-status">{{ formatTime(savedAt) }} 已保存</p>
+    <p class="save-status" :class="{ disconnected: status !== 'online' }"><span class="connection-dot" />{{ status === 'online' ? `${savedAt ? formatTime(savedAt) + ' ' : ''}已同步` : status === 'connecting' ? '正在连接…' : '连接中断，正在重连…' }}<button v-if="status === 'offline'" @click="reconnect">重试</button></p>
     <p v-if="pending" class="boot-state">正在读取评论墙…</p>
     <div v-if="loadError" class="load-error" role="alert">{{ loadError }} <button @click="load">重新连接</button></div>
     <div v-if="!pending && !loadError && !board.comments.length" class="empty-wall"><p>这里，等你的第一个想法。</p><span>选择下方「新增」，再点击画布。</span></div>

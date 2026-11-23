@@ -85,12 +85,13 @@ def me(request: Request):
 
 
 @router.post("/logout")
-def logout(request: Request, response: Response):
+async def logout(request: Request, response: Response):
     token = request.cookies.get(COOKIE)
     if token:
         with request.app.state.db() as db:
             db.execute(delete(LoginSession).where(LoginSession.token_hash == token_digest(token)))
             db.commit()
+        await request.app.state.hub.revoke(token_digest(token))
     response.delete_cookie(COOKIE, path="/")
     return {"ok": True}
 
