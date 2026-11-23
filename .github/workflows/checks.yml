@@ -44,7 +44,7 @@ jobs:
         run: docker build -t comment-wall:ci .
       - name: Verify the production container starts
         run: |
-          docker run -d --name wall-production --network host -e DATABASE_URL="$TEST_DATABASE_URL" -e PORT=8001 comment-wall:ci
+          docker run -d --name wall-production --network host -e APP_ENV=production -e DATABASE_URL="$TEST_DATABASE_URL" -e PORT=8001 comment-wall:ci
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8001/api/health; then break; fi
             sleep 2

@@ -57,9 +57,9 @@ class Like(Base):
 
 def open_database(url: str | None = None):
     url = url or os.getenv("DATABASE_URL")
+    if os.getenv("APP_ENV") == "production" and (not url or not url.startswith(("postgres://", "postgresql://", "postgresql+psycopg://"))):
+        raise RuntimeError("生产部署必须设置持久化 PostgreSQL DATABASE_URL，避免临时磁盘丢失数据")
     if not url:
-        if os.getenv("APP_ENV") == "production":
-            raise RuntimeError("生产部署必须设置持久化 PostgreSQL DATABASE_URL，避免临时磁盘丢失数据")
         directory = Path(__file__).resolve().parents[1] / "data"
         directory.mkdir(exist_ok=True)
         url = "sqlite:///" + (directory / "wall.db").as_posix()
