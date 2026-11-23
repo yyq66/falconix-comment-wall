@@ -49,6 +49,12 @@ class WallState(Base):
     revision: Mapped[int] = mapped_column(default=0)
 
 
+class Like(Base):
+    __tablename__ = "likes"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    comment_id: Mapped[str] = mapped_column(ForeignKey("comments.id"), primary_key=True)
+
+
 def open_database(url: str | None = None):
     url = url or os.getenv("DATABASE_URL")
     if not url:
