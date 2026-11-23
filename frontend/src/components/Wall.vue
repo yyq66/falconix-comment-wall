@@ -161,7 +161,7 @@ function nudge(event: KeyboardEvent, note: Note) {
       </div>
     </div>
     <section v-if="showOverview" class="emotion-overview" aria-label="情绪概览">
-      <div class="emotion-bar" :class="{ empty: !board.comments.length }" role="img" :aria-label="summary.map(s => `${s.label}${s.count}条，占${s.percent}%`).join('；')"><span v-for="item in summary.filter(s => s.count)" :key="item.key" :class="item.key" :style="{ flex: item.count }" :title="`${item.label}：${item.count}条，${item.percent}%`">{{ width < 768 && item.percent < 18 ? `${item.percent}%` : `${item.label}${item.percent}%` }}</span><span v-if="!board.comments.length">暂无评论</span></div>
+      <div class="emotion-bar" :class="{ empty: !board.comments.length }" role="img" :aria-label="summary.map(s => `${s.label}${s.count}条，占${s.percent}%`).join('；')"><span v-for="item in summary.filter(s => s.count)" :key="item.key" :class="item.key" :style="{ flex: item.count }" :title="`${item.label}：${item.count}条，${item.percent}%`">{{ item.percent < 6 ? '' : item.percent < 18 ? `${item.percent}%` : `${item.label}${item.percent}%` }}</span><span v-if="!board.comments.length">暂无评论</span></div>
       <div class="overview-caption"><span>共 {{ board.comments.length }} 条建议</span><button aria-label="收起情绪概览" @click="showOverview = false">收起概览</button></div>
     </section>
     <template v-else><p class="wall-count">共反馈 <strong>{{ board.comments.length }}</strong> 条建议</p><button class="overview-toggle" @click="showOverview = true">情绪概览</button></template>

@@ -106,6 +106,8 @@ async (page) => {
 
     for (const width of [1820, 1440, 1200, 1024, 768, 390, 375]) {
       await page.setViewportSize({ width, height: 900 })
+      // ResizeObserver and Vue update after the viewport changes, so inspect the settled layout.
+      await page.waitForFunction(width => window.innerWidth === width && Array.from(document.querySelectorAll('.emotion-bar > span')).every(el => el.scrollWidth <= el.clientWidth + 1), width)
       const toolbar = await page.getByRole('navigation', { name: '画布工具' }).boundingBox()
       assert(toolbar.x >= 0 && toolbar.x + toolbar.width <= width + 1, `${width}px 工具栏超出屏幕`)
       const labels = await page.locator('.emotion-bar > span').evaluateAll(els => els.every(el => el.scrollWidth <= el.clientWidth + 1))
