@@ -78,9 +78,10 @@ async def publish_board(request):
 
 
 @router.get("/board")
-def get_board(request: Request):
+async def get_board(request: Request):
     require_user(request)
-    return board_snapshot(request.app)
+    async with request.app.state.mutation_lock:
+        return board_snapshot(request.app)
 
 
 @router.post("/comments")

@@ -165,13 +165,14 @@ function nudge(event: KeyboardEvent, note: Note) {
       <div class="overview-caption"><span>共 {{ board.comments.length }} 条建议</span><button aria-label="收起情绪概览" @click="showOverview = false">收起概览</button></div>
     </section>
     <template v-else><p class="wall-count">共反馈 <strong>{{ board.comments.length }}</strong> 条建议</p><button class="overview-toggle" @click="showOverview = true">情绪概览</button></template>
-    <p class="save-status" :class="{ disconnected: status !== 'online' }"><span class="connection-dot" />{{ status === 'online' ? `${savedAt ? formatTime(savedAt) + ' ' : ''}已同步` : status === 'connecting' ? '正在连接…' : '连接中断，正在重连…' }}<button v-if="status === 'offline'" @click="reconnect">重试</button></p>
+    <p class="save-status" :class="{ disconnected: status !== 'online' }"><span class="connection-dot" /><span v-if="status === 'online'"><span v-if="savedAt" class="sync-time">{{ formatTime(savedAt) }} </span>已同步</span><span v-else>{{ status === 'connecting' ? '正在连接…' : '连接中断，正在重连…' }}</span><button v-if="status === 'offline'" @click="reconnect">重试</button></p>
     <p v-if="pending" class="boot-state">正在读取评论墙…</p>
     <div v-if="loadError" class="load-error" role="alert">{{ loadError }} <button @click="load">重新连接</button></div>
     <div v-if="!pending && !loadError && !board.comments.length" class="empty-wall"><p>这里，等你的第一个想法。</p><span>选择下方「新增」，再点击画布。</span></div>
     <nav class="wall-tools" aria-label="画布工具"><button :class="{ active: tool === 'add' }" title="新增贴纸 · 点击画布选择位置" aria-label="新增贴纸" :aria-pressed="tool === 'add'" @click="organized = false; tool = 'add'"><Icon name="add" /></button><button :class="{ active: tool === 'select' }" title="鼠标选择 · 点击贴纸查看或编辑" aria-label="鼠标选择" :aria-pressed="tool === 'select'" @click="tool = 'select'"><Icon name="cursor" /></button><button :class="{ active: tool === 'drag' }" title="拖动自己的贴纸" aria-label="拖动贴纸" :aria-pressed="tool === 'drag'" @click="organized = false; tool = 'drag'"><Icon name="hand" /></button><button class="organize-button" :aria-pressed="organized" :title="organized ? '恢复共享的自由布局' : '按情绪分列，仅整理我的视图'" @click="organized = !organized; tool = 'select'"><span aria-hidden="true">✦</span>{{ organized ? '还原布局' : '智能整理' }}</button></nav>
     <div v-if="tool === 'add'" class="tool-hint" role="status">点击画布，贴下一个新想法</div>
     <div v-if="tool === 'drag'" class="tool-hint" role="status">拖动自己的贴纸 · 也可用方向键移动</div>
+    <div v-if="width < 768 && tool === 'select' && !editorOpen" class="mobile-canvas-hint">左右滑动，浏览整面评论墙</div>
     <NoteEditor v-if="editorOpen" :user="props.user" :note="selected" :position="position" :readonly="!!selected && selected.author.id !== user.id" @close="editorOpen = false" @saved="saved" />
   </div>
 </template>
