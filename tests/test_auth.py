@@ -72,3 +72,14 @@ class AuthTests(unittest.TestCase):
         self.assertNotEqual(self.client.post("/api/auth/register", json={}).status_code, 200)
         response = self.client.post("/api/auth/login", json={"username": "demo_a", "password": "Wall2027!"}, headers={"Origin": "https://other.example"})
         self.assertEqual(response.status_code, 403)
+
+    def test_expired_and_forged_sessions_are_rejected(self):
+        self.login()
+        with self.app.state.db() as db:
+            for session in db.scalars(select(LoginSession)):
+                session.expires = 0
+            db.commit()
+        self.assertEqual(self.client.get("/api/auth/me").status_code, 401)
+        self.client.cookies.clear()
+        self.client.cookies.set("wall_session", "forged-session-value")
+        self.assertEqual(self.client.get("/api/auth/me").status_code, 401)

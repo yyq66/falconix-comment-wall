@@ -88,7 +88,7 @@ function applyBoard(value: Board) {
 function addAt(event: MouseEvent) {
   if (tool.value !== 'add' || pending.value) return
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  position.value = { x: Math.max(0, Math.min(1448, (event.clientX - rect.left) / scale.value)), y: Math.max(80, Math.min(5000, (event.clientY - rect.top) / scale.value)) }
+  position.value = { x: Math.max(0, Math.min(5000, (event.clientX - rect.left) / scale.value)), y: Math.max(80, Math.min(5000, (event.clientY - rect.top) / scale.value)) }
   selected.value = null; editorOpen.value = true
 }
 function openNote(note: Note) { if (tool.value !== 'select') return; selected.value = { ...note }; editorOpen.value = true }

@@ -2,7 +2,7 @@ import os
 import time
 from pathlib import Path
 
-from sqlalchemy import ForeignKey, String, Text, create_engine, event
+from sqlalchemy import BigInteger, ForeignKey, String, Text, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 
@@ -36,8 +36,8 @@ class Comment(Base):
     y: Mapped[float] = mapped_column(default=150.0)
     rotation: Mapped[float] = mapped_column(default=0.0)
     color: Mapped[str] = mapped_column(String(20), default="#ebe0ff")
-    created_at: Mapped[int] = mapped_column()
-    updated_at: Mapped[int] = mapped_column()
+    created_at: Mapped[int] = mapped_column(BigInteger)
+    updated_at: Mapped[int] = mapped_column(BigInteger)
     content_version: Mapped[int] = mapped_column(default=1)
     position_version: Mapped[int] = mapped_column(default=1)
     sentiment: Mapped[str] = mapped_column(String(20), default="neutral")

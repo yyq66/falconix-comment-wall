@@ -13,6 +13,7 @@ class SentimentTests(unittest.TestCase):
             "这个工具不是很好": "negative",
             "目前没有问题，使用很顺畅": "positive",
             "不是不满意，我很喜欢": "positive",
+            "点赞这个工具，减少无效内耗，建议全公司推广": "positive",
         }
         for text, expected in examples.items():
             with self.subTest(text=text):
