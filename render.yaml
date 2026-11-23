@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: falconix-comment-wall
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /api/health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: COOKIE_SECURE
+        value: "1"
+      - key: SEED_DEMO
+        value: "1"
+      - key: APP_ENV
+        value: production

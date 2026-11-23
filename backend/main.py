@@ -9,6 +9,7 @@ import bcrypt
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from .auth import router as auth_router, seed_users
 from .database import Base, open_database
@@ -49,6 +50,11 @@ def create_app(database_url: str | None = None, seed_demo: bool | None = None):
 
     @application.get("/api/health")
     def health():
+        try:
+            with factory() as db:
+                db.execute(text("SELECT 1"))
+        except Exception:
+            return JSONResponse({"status": "unavailable"}, status_code=503)
         return {"status": "ok"}
 
     application.include_router(auth_router)

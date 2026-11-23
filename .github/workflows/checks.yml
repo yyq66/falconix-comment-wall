@@ -1,0 +1,56 @@
+name: Build and test
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: wall
+          POSTGRES_PASSWORD: wall_test
+          POSTGRES_DB: wall_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wall -d wall_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://wall:wall_test@127.0.0.1:5432/wall_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: python -m pip install -r requirements.lock
+      - run: python -m unittest discover -s tests -v
+      - run: npm ci && npm run build
+        working-directory: frontend
+      - name: Verify production container builds
+        run: docker build -t comment-wall:ci .
+      - name: Verify the production container starts
+        run: |
+          docker run -d --name wall-production --network host -e DATABASE_URL="$TEST_DATABASE_URL" -e PORT=8001 comment-wall:ci
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8001/api/health; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8001/api/health
+          curl --fail --silent http://127.0.0.1:8001/ | grep -q '实时评论墙'
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs wall-production || true
