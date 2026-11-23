@@ -1,3 +1,5 @@
+import asyncio
+import os
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -10,20 +12,23 @@ from fastapi.staticfiles import StaticFiles
 
 from .auth import router as auth_router, seed_users
 from .database import Base, open_database
+from .comments import initialize_wall, router as comments_router
 
 
-def create_app(database_url: str | None = None):
+def create_app(database_url: str | None = None, seed_demo: bool | None = None):
     engine, factory = open_database(database_url)
 
     @asynccontextmanager
     async def lifespan(app):
         Base.metadata.create_all(engine)
         seed_users(factory)
+        initialize_wall(factory, demo=seed_demo if seed_demo is not None else os.getenv("SEED_DEMO", "1") == "1")
         yield
         engine.dispose()
 
     application = FastAPI(title="实时评论墙", version="0.1.0", lifespan=lifespan)
     application.state.db = factory
+    application.state.mutation_lock = asyncio.Lock()
     application.state.login_attempts = defaultdict(deque)
     application.state.dummy_hash = bcrypt.hashpw(b"invalid-password", bcrypt.gensalt()).decode()
 
@@ -45,6 +50,7 @@ def create_app(database_url: str | None = None):
         return {"status": "ok"}
 
     application.include_router(auth_router)
+    application.include_router(comments_router)
     dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
     if dist.is_dir():
         application.mount("/", StaticFiles(directory=dist, html=True), name="frontend")

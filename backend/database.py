@@ -26,6 +26,29 @@ class LoginSession(Base):
     expires: Mapped[int] = mapped_column(default=lambda: int(time.time()) + 86400)
 
 
+class Comment(Base):
+    __tablename__ = "comments"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    content_html: Mapped[str] = mapped_column(Text)
+    text: Mapped[str] = mapped_column(Text)
+    x: Mapped[float] = mapped_column(default=100.0)
+    y: Mapped[float] = mapped_column(default=150.0)
+    rotation: Mapped[float] = mapped_column(default=0.0)
+    color: Mapped[str] = mapped_column(String(20), default="#ebe0ff")
+    created_at: Mapped[int] = mapped_column()
+    updated_at: Mapped[int] = mapped_column()
+    content_version: Mapped[int] = mapped_column(default=1)
+    position_version: Mapped[int] = mapped_column(default=1)
+    sentiment: Mapped[str] = mapped_column(String(20), default="neutral")
+
+
+class WallState(Base):
+    __tablename__ = "wall_state"
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    revision: Mapped[int] = mapped_column(default=0)
+
+
 def open_database(url: str | None = None):
     url = url or os.getenv("DATABASE_URL")
     if not url:

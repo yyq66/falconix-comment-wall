@@ -1,4 +1,6 @@
 export interface User { id: string; username: string; name: string; avatar: string }
+export interface Note { id: string; author: User; content_html: string; text: string; x: number; y: number; rotation: number; color: string; created_at: number; updated_at: number; content_version: number; position_version: number; sentiment: string; liked_by: string[] }
+export interface Board { revision: number; comments: Note[] }
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message) }
