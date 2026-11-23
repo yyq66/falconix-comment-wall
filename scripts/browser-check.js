@@ -6,8 +6,18 @@ async (page) => {
   const browser = page.context().browser()
   const contextB = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const b = await contextB.newPage()
-  async function signIn(target, account) {
+  const runtimeErrors = []
+  const onError = error => runtimeErrors.push(error.message)
+  page.on('pageerror', onError)
+  b.on('pageerror', onError)
+  async function signIn(target, account, checkError = false) {
     await target.getByRole('button', { name: '登录', exact: true }).click()
+    if (checkError) {
+      await target.getByRole('textbox', { name: '账号', exact: true }).fill('demo_a')
+      await target.getByRole('textbox', { name: '密码', exact: true }).fill('Incorrect123')
+      await target.getByRole('dialog').getByRole('button', { name: '登录', exact: true }).click()
+      await target.getByRole('alert').filter({ hasText: '账号或密码错误' }).waitFor()
+    }
     await target.getByRole('button', { name: account }).click()
     await target.getByRole('dialog').getByRole('button', { name: '登录', exact: true }).click()
     await target.getByRole('button', { name: '退出登录', exact: true }).waitFor()
@@ -30,7 +40,7 @@ async (page) => {
     await page.context().clearCookies()
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(base)
-    await signIn(page, '赵欣 · demo_a')
+    await signIn(page, '赵欣 · demo_a', true)
     await b.goto(base)
     await signIn(b, '王美丽 · demo_b')
     await page.getByLabel('2 人在线', { exact: true }).waitFor()
@@ -44,6 +54,13 @@ async (page) => {
     for (const tag of ['strong', 'em', 'u', 's', 'ul']) assert(await noteB.locator(tag).count() > 0, `${tag} 格式未同步`)
     assert(await noteB.getAttribute('data-sentiment') === 'positive', '正面情绪未识别')
     passed.push('富文本保存、实时发布和自动变色')
+
+    await noteA.click()
+    await page.getByRole('textbox', { name: '评论内容' }).press('ControlOrMeta+End')
+    await page.getByRole('textbox', { name: '评论内容' }).pressSequentially(' 欢迎更多建议')
+    await page.getByRole('button', { name: '保存修改', exact: true }).click()
+    await b.getByRole('article').filter({ hasText: positiveText + ' 欢迎更多建议' }).waitFor()
+    passed.push('自己的贴纸编辑与修改实时同步')
 
     await noteB.click()
     await b.getByRole('dialog', { name: '查看建议' }).waitFor()
@@ -123,9 +140,12 @@ async (page) => {
     assert(modal.x >= 0 && modal.x + modal.width <= 376, '手机登录弹窗超出屏幕')
     await page.getByRole('button', { name: '关闭登录' }).click()
     passed.push('退出在线状态与手机登录弹窗')
+    assert(runtimeErrors.length === 0, `浏览器运行异常：${runtimeErrors.join('; ')}`)
     return { passed }
   } finally {
     await page.context().setOffline(false)
+    page.off('pageerror', onError)
+    b.off('pageerror', onError)
     await contextB.close().catch(() => {})
   }
 }
