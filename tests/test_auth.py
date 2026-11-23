@@ -62,6 +62,12 @@ class AuthTests(unittest.TestCase):
             tokens = db.scalars(select(LoginSession.token_hash)).all()
             self.assertNotIn(self.client.cookies.get("wall_session"), tokens)
 
+    def test_demo_avatar_assets_exist(self):
+        public = Path(__file__).resolve().parents[1] / "frontend" / "public"
+        with self.app.state.db() as db:
+            for user in db.scalars(select(User)):
+                self.assertTrue((public / user.avatar.lstrip("/")).is_file(), user.avatar)
+
     def test_no_registration_route_and_cross_site_denied(self):
         self.assertNotEqual(self.client.post("/api/auth/register", json={}).status_code, 200)
         response = self.client.post("/api/auth/login", json={"username": "demo_a", "password": "Wall2027!"}, headers={"Origin": "https://other.example"})

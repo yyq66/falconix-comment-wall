@@ -1,0 +1,86 @@
+{
+  "source": "Figma-Prototype-Real-time-Comment-Wall_Falconix_Campus2026.fig",
+  "assets": {
+    "account": {
+      "file": "account.svg",
+      "source": "original Figma geometry"
+    },
+    "add": {
+      "file": "add.svg",
+      "source": "original Figma geometry"
+    },
+    "bold": {
+      "file": "bold.svg",
+      "source": "original Figma geometry"
+    },
+    "bullet-list": {
+      "file": "bullet-list.svg",
+      "source": "original Figma geometry"
+    },
+    "close": {
+      "file": "close.svg",
+      "source": "original Figma geometry"
+    },
+    "cursor": {
+      "file": "cursor.svg",
+      "source": "original Figma geometry"
+    },
+    "hand": {
+      "file": "hand.svg",
+      "source": "original Figma geometry"
+    },
+    "heart-fill": {
+      "file": "heart-fill.svg",
+      "source": "original Figma geometry"
+    },
+    "heart": {
+      "file": "heart.svg",
+      "source": "original Figma geometry"
+    },
+    "italic": {
+      "file": "italic.svg",
+      "source": "original Figma geometry"
+    },
+    "logo": {
+      "file": "logo.svg",
+      "source": "original Figma geometry"
+    },
+    "ordered-list": {
+      "file": "ordered-list.svg",
+      "source": "original Figma geometry"
+    },
+    "strike": {
+      "file": "strike.svg",
+      "source": "original Figma geometry"
+    },
+    "underline": {
+      "file": "underline.svg",
+      "source": "original Figma geometry"
+    },
+    "avatar-1": {
+      "file": "avatar-1.png",
+      "node": "323:2382",
+      "sourceImage": "34b5102dc42c453877663fbe21d59ba0b9ff5101"
+    },
+    "avatar-2": {
+      "file": "avatar-2.png",
+      "node": "323:2408",
+      "sourceImage": "aa2252b1c7f519df8183fd366729d4f1c8c5023d"
+    },
+    "avatar-3": {
+      "file": "avatar-3.png",
+      "node": "323:2421",
+      "sourceImage": "edf94fbef1ec72d5085f14d3e7fac000681d6109"
+    },
+    "avatar-4": {
+      "file": "avatar-4.png",
+      "node": "323:2447",
+      "sourceImage": "20e9fb212e12564b50e5a5e104689cca71a5ff80"
+    },
+    "avatar-5": {
+      "file": "avatar-5.png",
+      "node": "323:2459",
+      "sourceImage": "8b307dd7594923db63d873694c2a7dd623a8ed64"
+    }
+  }
+}

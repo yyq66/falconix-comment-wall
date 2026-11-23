@@ -10,3 +10,4 @@ frontend/dist/
 output/
 .playwright-cli/
 *.log
+*.tsbuildinfo
