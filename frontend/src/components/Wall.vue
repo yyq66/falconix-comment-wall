@@ -16,6 +16,7 @@ const selected = ref<Note | null>(null)
 const position = ref({ x: 400, y: 250 })
 const viewport = ref<HTMLDivElement>()
 const width = ref(1748)
+const height = ref(1010)
 const organized = ref(false)
 const showOverview = ref(true)
 const noteHeights = ref<Record<string, number>>({})
@@ -46,7 +47,7 @@ const arrangedPositions = computed(() => {
 function notePosition(note: Note) { return organized.value ? arrangedPositions.value[note.id] || note : note }
 const scale = computed(() => Math.min(1, Math.max(.72, width.value / 1748)))
 const worldWidth = computed(() => Math.max(1748, width.value / scale.value + 400, ...board.value.comments.map(n => notePosition(n).x + 360)))
-const worldHeight = computed(() => Math.max(1010, ...board.value.comments.map(n => notePosition(n).y + (noteHeights.value[n.id] || 360) + 160)))
+const worldHeight = computed(() => Math.max(1010, height.value / scale.value + 400, ...board.value.comments.map(n => notePosition(n).y + (noteHeights.value[n.id] || 360) + 160)))
 const savedAt = computed(() => Math.max(0, ...board.value.comments.map(n => n.updated_at)))
 const busyLikes = ref(new Set<string>())
 const busyMoves = ref(new Set<string>())
@@ -64,7 +65,10 @@ const { status, reconnect } = useRealtime({
 let observer: ResizeObserver | undefined
 onMounted(() => {
   load()
-  observer = new ResizeObserver(entries => width.value = entries[0]?.contentRect.width || 1748)
+  observer = new ResizeObserver(entries => {
+    width.value = entries[0]?.contentRect.width || 1748
+    height.value = entries[0]?.contentRect.height || 1010
+  })
   if (viewport.value) observer.observe(viewport.value)
   window.addEventListener('keydown', pressSpace)
   window.addEventListener('keyup', releaseSpace)
@@ -159,6 +163,7 @@ function releaseSpace(event: KeyboardEvent) {
   if (event.code === 'Space') spacePressed.value = false
 }
 function startPan(event: PointerEvent) {
+  suppressClickUntil = 0
   if (event.button !== 0 || !event.isPrimary || drag || pan || (tool.value !== 'drag' && !spacePressed.value) || (event.target as HTMLElement).closest('button, input, textarea, [contenteditable="true"]')) return
   const target = viewport.value!
   event.preventDefault()
