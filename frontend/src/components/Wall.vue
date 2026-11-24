@@ -101,6 +101,11 @@ function applyBoard(value: Board) {
   const current = drag && board.value.comments.find(n => n.id === drag!.id)
   if (current) value.comments = value.comments.map(note => note.id === current.id ? { ...note, x: current.x, y: current.y } : note)
   board.value = value
+  if (drag && !value.comments.some(n => n.id === drag!.id)) { drag = null; dragging.value = null }
+  if (selected.value && editorOpen.value && !value.comments.some(n => n.id === selected.value!.id)) {
+    editorOpen.value = false; selected.value = null; tool.value = 'select'
+    emit('notify', '贴纸已删除，评论墙已同步')
+  }
 }
 function addAt(event: MouseEvent) {
   if (tool.value !== 'add' || pending.value) return
@@ -110,6 +115,7 @@ function addAt(event: MouseEvent) {
 }
 function openNote(note: Note) { if (tool.value !== 'select') return; selected.value = { ...note }; editorOpen.value = true }
 function saved(value: Board) { applyBoard(value); editorOpen.value = false; tool.value = 'select'; emit('notify', selected.value ? '修改已保存' : '你的想法已贴上墙') }
+function deleted(value: Board) { applyBoard(value); editorOpen.value = false; selected.value = null; tool.value = 'select'; emit('notify', '贴纸已删除，评论墙已同步') }
 const formatTime = (time: number) => new Date(time).toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-')
 async function like(note: Note) {
   if (busyLikes.value.has(note.id)) return
@@ -236,6 +242,6 @@ function nudge(event: KeyboardEvent, note: Note) {
     <div v-if="spacePressed" class="tool-hint" role="status">拖动画布，松开空格恢复工具</div>
     <div v-else-if="tool === 'drag'" class="tool-hint" role="status">拖动空白处浏览 · 拖动自己的贴纸移动位置 · 空格拖动画布</div>
     <div v-if="width < 768 && tool === 'select' && !editorOpen" class="mobile-canvas-hint">左右滑动，浏览整面评论墙</div>
-    <NoteEditor v-if="editorOpen" :user="props.user" :note="selected" :position="position" :readonly="!!selected && selected.author.id !== user.id" @close="editorOpen = false" @saved="saved" />
+    <NoteEditor v-if="editorOpen" :user="props.user" :note="selected" :position="position" :readonly="!!selected && selected.author.id !== user.id" @close="editorOpen = false" @saved="saved" @deleted="deleted" />
   </div>
 </template>

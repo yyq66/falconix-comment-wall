@@ -37,7 +37,7 @@ class RealtimeTests(unittest.TestCase):
                 return message
         self.fail("Expected event was not delivered")
 
-    def test_two_users_receive_created_edited_moved_and_liked_state(self):
+    def test_two_users_receive_created_edited_moved_liked_and_deleted_state(self):
         with self.connect("demo_a") as a, self.connect("demo_b") as b:
             self.next_type(a, "board")
             self.next_type(b, "board")
@@ -61,6 +61,14 @@ class RealtimeTests(unittest.TestCase):
                 state = self.next_type(rejoined, "board")["board"]
                 note = next(n for n in state["comments"] if n["id"] == id)
                 self.assertEqual((note["text"], note["x"], note["liked_by"]), ("同步编辑", 600, ["user-a"]))
+            removed = self.client.request('DELETE', f'/api/comments/{id}', json={'content_version': 2, 'position_version': 2})
+            self.assertEqual(removed.status_code, 200)
+            for ws in [a, b]:
+                snapshot = self.next_type(ws, 'board')['board']
+                self.assertEqual(snapshot, removed.json())
+                self.assertFalse(any(n['id'] == id for n in snapshot['comments']))
+            with self.connect('demo_b') as rejoined:
+                self.assertFalse(any(n['id'] == id for n in self.next_type(rejoined, 'board')['board']['comments']))
 
     def test_presence_deduplicates_tabs_and_keeps_user_until_last_tab_leaves(self):
         with self.connect() as a:

@@ -7,11 +7,11 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from .auth import public_user, require_user
 from .content import clean_content
-from .database import Comment, Like, User, WallState
+from .database import Comment, DeletedComment, Like, User, WallState
 from .sentiment import classify
 
 router = APIRouter(prefix="/api", tags=["comments"])
@@ -47,6 +47,11 @@ class MoveBody(BaseModel):
 
 class LikeBody(BaseModel):
     liked: bool
+
+
+class DeleteBody(BaseModel):
+    content_version: int = Field(ge=1)
+    position_version: int = Field(ge=1)
 
 
 def board_snapshot(app):
@@ -90,6 +95,11 @@ async def create_comment(body: CreateBody, request: Request):
     content_html, text = clean_content(body.content_html)
     async with request.app.state.mutation_lock:
         with request.app.state.db() as db:
+            deleted = db.get(DeletedComment, body.request_id)
+            if deleted:
+                if deleted.user_id != user.id:
+                    raise HTTPException(409, "请求标识已被使用，请重试")
+                return board_snapshot(request.app)
             existing = db.get(Comment, body.request_id)
             if existing:
                 if existing.user_id != user.id:
@@ -190,5 +200,30 @@ async def like_comment(comment_id: str, body: LikeBody, request: Request):
             elif not body.liked and like:
                 db.delete(like)
                 bump_revision(db)
+            db.commit()
+        return await publish_board(request)
+
+
+@router.delete("/comments/{comment_id}")
+async def delete_comment(comment_id: str, body: DeleteBody, request: Request):
+    user = require_user(request)
+    async with request.app.state.mutation_lock:
+        with request.app.state.db() as db:
+            deleted = db.get(DeletedComment, comment_id)
+            if deleted:
+                if deleted.user_id != user.id:
+                    raise HTTPException(403, "只能删除自己的贴纸")
+                return board_snapshot(request.app)
+            comment = db.get(Comment, comment_id)
+            if not comment:
+                raise HTTPException(404, "贴纸不存在")
+            if comment.user_id != user.id:
+                raise HTTPException(403, "只能删除自己的贴纸")
+            if (comment.content_version, comment.position_version) != (body.content_version, body.position_version):
+                raise HTTPException(409, "贴纸已在其他窗口更新，请重新打开确认后删除")
+            db.execute(delete(Like).where(Like.comment_id == comment_id))
+            db.delete(comment)
+            db.add(DeletedComment(id=comment_id, user_id=user.id, deleted_at=int(time.time() * 1000)))
+            bump_revision(db)
             db.commit()
         return await publish_board(request)

@@ -49,6 +49,14 @@ class WallState(Base):
     revision: Mapped[int] = mapped_column(default=0)
 
 
+class DeletedComment(Base):
+    """Keep request IDs after deletion so a delayed create retry cannot restore a note."""
+    __tablename__ = "deleted_comments"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    deleted_at: Mapped[int] = mapped_column(BigInteger)
+
+
 class Like(Base):
     __tablename__ = "likes"
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)

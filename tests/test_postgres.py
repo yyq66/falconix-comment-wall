@@ -36,3 +36,14 @@ class PostgresTests(unittest.TestCase):
             note = next(n for n in reopened.get("/api/board").json()["comments"] if n["id"] == id)
             self.assertEqual((note["text"], note["x"], note["y"], note["liked_by"]), ("PostgreSQL 数据保存", 700, 500, ["user-a"]))
             self.assertEqual(reopened.patch(f"/api/comments/{id}/content", json={"content_html": "<p>越权</p>", "content_version": 2}).status_code, 403)
+            versions = {'content_version': 2, 'position_version': 2}
+            self.assertEqual(reopened.request('DELETE', f'/api/comments/{id}', json=versions).status_code, 403)
+            reopened.post('/api/auth/login', json={'username': 'demo_a', 'password': 'Wall2027!'})
+            removed = reopened.request('DELETE', f'/api/comments/{id}', json=versions)
+            self.assertEqual(removed.status_code, 200, removed.text)
+            self.assertFalse(any(n['id'] == id for n in removed.json()['comments']))
+        with TestClient(create_app(url)) as after_delete:
+            after_delete.post('/api/auth/login', json={'username': 'demo_a', 'password': 'Wall2027!'})
+            retried = after_delete.post('/api/comments', json={'request_id': id, 'content_html': '<p>延迟重试</p>', 'x': 330, 'y': 250})
+            self.assertEqual(retried.status_code, 200)
+            self.assertEqual(retried.json(), removed.json())
