@@ -25,6 +25,18 @@ button { border: 0; background: transparent; color: inherit; }
 .member img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; object-position: center 30%; }
 .member i { position: absolute; right: 0; bottom: 0; border: 1.5px solid white; background: #29c759; width: 10px; height: 10px; border-radius: 50%; }
 .account-button { margin: 14px 0 18px; }
+.account-control { position: relative; margin: 14px 0 18px; width: 36px; flex-shrink: 0; }
+.account-control .account-button { margin: 0; border-radius: 50%; }
+.account-control .account-button:hover, .account-active { box-shadow: 0 0 0 4px #eaf2ff; }
+.account-panel { position: absolute; left: calc(100% + 20px); bottom: 0; width: 248px; max-width: calc(100vw - 88px); max-height: calc(100dvh - 36px); overflow: auto; padding: 8px; border: 1px solid #ededf0; border-radius: 16px; background: white; box-shadow: 0 8px 32px #00031116; }
+.account-profile { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 6px; border-bottom: 1px solid #ededf0; padding-bottom: 18px; }
+.account-profile > img { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; }
+.account-profile > div { display: flex; flex-direction: column; min-width: 0; gap: 4px; }
+.account-profile strong { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.account-profile span { font-size: 12px; color: #848691; overflow-wrap: anywhere; }
+.logout-button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 42px; padding: 10px 12px; border-radius: 9px; color: #d72a59; text-align: left; font-size: 14px; }
+.logout-button:hover:not(:disabled) { background: #fff1f5; }
+.logout-button:disabled { opacity: .55; }
 .anonymous { width: 36px; height: 36px; background: #e4e4e6; color: white; border-radius: 50%; }
 .wall-viewport { position: relative; margin-left: 72px; height: 100%; overflow: auto; }
 .primary-button { border-radius: 12px; padding: 12px 24px; color: white; background: #000311; font-size: 16px; line-height: 24px; transition: background .15s; }

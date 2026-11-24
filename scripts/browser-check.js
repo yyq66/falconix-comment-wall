@@ -20,7 +20,7 @@ async (page) => {
     }
     await target.getByRole('button', { name: account }).click()
     await target.getByRole('dialog').getByRole('button', { name: '登录', exact: true }).click()
-    await target.getByRole('button', { name: '退出登录', exact: true }).waitFor()
+    await target.getByRole('button', { name: '账号菜单', exact: true }).waitFor()
   }
   async function create(target, text, x, y, formats = []) {
     await target.getByRole('button', { name: '新增贴纸', exact: true }).click()
@@ -45,6 +45,34 @@ async (page) => {
     await signIn(b, '王美丽 · demo_b')
     await page.getByLabel('2 人在线', { exact: true }).waitFor()
     passed.push('两个独立账号登录与在线成员')
+
+    const accountButton = page.getByRole('button', { name: '账号菜单', exact: true })
+    const accountPanel = page.getByRole('region', { name: '当前登录账号' })
+    let logoutRequests = 0
+    const countLogout = request => { if (new URL(request.url()).pathname === '/api/auth/logout') logoutRequests++ }
+    page.on('request', countLogout)
+    await accountButton.click()
+    await accountPanel.waitFor()
+    assert((await accountPanel.textContent()).includes('赵欣') && (await accountPanel.textContent()).includes('demo_a'), '账号菜单缺少身份信息')
+    assert(logoutRequests === 0, '点击头像误发退出请求')
+    await accountButton.click()
+    assert(await accountPanel.count() === 0, '再次点击头像未收起菜单')
+    await accountButton.click()
+    await page.getByRole('button', { name: '鼠标选择', exact: true }).click()
+    assert(await accountPanel.count() === 0, '点击菜单外未收起')
+    await accountButton.focus()
+    await page.keyboard.press('ArrowDown')
+    assert(await page.getByRole('button', { name: '退出登录', exact: true }).evaluate(el => el === document.activeElement), '键盘未能进入退出入口')
+    await page.keyboard.press('Escape')
+    assert(await accountPanel.count() === 0 && await accountButton.evaluate(el => el === document.activeElement), 'Esc 未收起菜单并恢复头像焦点')
+    await accountButton.press('Enter')
+    await page.keyboard.press('Tab')
+    assert(await page.getByRole('button', { name: '退出登录', exact: true }).evaluate(el => el === document.activeElement), 'Tab 无法进入账号操作')
+    await page.keyboard.press('Tab')
+    assert(await accountPanel.count() === 0, '焦点离开后菜单没有收起')
+    assert(logoutRequests === 0 && (await page.request.get(`${base}/api/auth/me`)).ok(), '查看或关闭菜单改变了登录状态')
+    page.off('request', countLogout)
+    passed.push('头像仅展开账号信息、外部关闭、Esc/Tab 键盘操作与登录状态保留')
 
     const positiveText = `${marker} 感谢支持，这个工具非常好用。`
     const noteA = await create(page, positiveText, 100, 650, ['加粗', '斜体', '下划线', '删除线', '无序列表'])
@@ -180,10 +208,15 @@ async (page) => {
       assert(toolbar.x >= 0 && toolbar.x + toolbar.width <= width + 1, `${width}px 工具栏超出屏幕`)
       const labels = await page.locator('.emotion-bar > span').evaluateAll(els => els.every(el => el.scrollWidth <= el.clientWidth + 1))
       assert(labels, `${width}px 情绪标签被截断`)
+      await accountButton.click()
+      const accountBox = await accountPanel.boundingBox()
+      assert(accountBox.x >= 0 && accountBox.x + accountBox.width <= width && accountBox.y >= 0 && accountBox.y + accountBox.height <= 900, `${width}px 账号菜单超出屏幕`)
+      await page.keyboard.press('Escape')
     }
     passed.push('7 个桌面与手机断点')
     await contextB.close()
     await page.getByLabel('1 人在线', { exact: true }).waitFor()
+    await accountButton.click()
     await page.getByRole('button', { name: '退出登录', exact: true }).click()
     await page.getByRole('button', { name: '登录', exact: true }).waitFor()
     await page.getByRole('button', { name: '登录', exact: true }).click()

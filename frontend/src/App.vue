@@ -4,6 +4,7 @@ import { api, ApiError, type User } from './api'
 import Icon from './components/Icon.vue'
 import LoginModal from './components/LoginModal.vue'
 import Wall from './components/Wall.vue'
+import AccountMenu from './components/AccountMenu.vue'
 
 const user = ref<User | null>(null)
 const loading = ref(true)
@@ -37,7 +38,7 @@ async function logout() {
       <img src="/assets/logo.svg" class="brand-logo" alt="鹰眼智能" />
       <div class="sidebar-divider" />
       <div class="members" :aria-label="`${onlineMembers.length} 人在线`"><span v-for="member in onlineMembers" :key="member.id" class="member" :title="`${member.name}${member.id === user?.id ? '（我）' : ''}`"><img :src="member.avatar" :alt="member.name" /><i /></span></div>
-      <button v-if="user" class="account-button member" :title="`${user.name} · 点击退出登录`" aria-label="退出登录" :disabled="loggingOut" @click="logout"><img :src="user.avatar" :alt="user.name" /><i /></button>
+      <AccountMenu v-if="user" :key="user.id" :user="user" :busy="loggingOut" @logout="logout" />
       <button v-else class="account-button anonymous" aria-label="登录账号" @click="showLogin = true"><Icon name="account" :size="20" /></button>
     </aside>
     <section class="wall-viewport">
