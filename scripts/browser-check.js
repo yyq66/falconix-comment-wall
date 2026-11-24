@@ -54,6 +54,8 @@ async (page) => {
     await accountButton.click()
     await accountPanel.waitFor()
     assert((await accountPanel.textContent()).includes('赵欣') && (await accountPanel.textContent()).includes('demo_a'), '账号菜单缺少身份信息')
+    await accountPanel.getByText('demo_a', { exact: true }).click()
+    assert(await accountPanel.count() === 1, '点击菜单内的账号信息误关闭浮层')
     assert(logoutRequests === 0, '点击头像误发退出请求')
     await accountButton.click()
     assert(await accountPanel.count() === 0, '再次点击头像未收起菜单')
