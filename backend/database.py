@@ -57,6 +57,15 @@ class DeletedComment(Base):
     deleted_at: Mapped[int] = mapped_column(BigInteger)
 
 
+class SentimentAnnotation(Base):
+    __tablename__ = "sentiment_annotations"
+    comment_id: Mapped[str] = mapped_column(ForeignKey("comments.id", ondelete="CASCADE"), primary_key=True)
+    content_version: Mapped[int] = mapped_column()
+    signature: Mapped[str] = mapped_column(String(64))
+    source: Mapped[str] = mapped_column(String(20))
+    confidence: Mapped[float | None] = mapped_column(nullable=True)
+
+
 class Like(Base):
     __tablename__ = "likes"
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)

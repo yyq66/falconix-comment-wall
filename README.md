@@ -50,6 +50,7 @@ Windows 激活 `.venv\Scripts\activate`，macOS/Linux 执行 `source .venv/bin/a
 
 ```sh
 pip install -r requirements.lock
+python scripts/download_sentiment_model.py
 cd frontend
 npm ci
 npm run build
@@ -106,14 +107,14 @@ GitHub 自动检查运行后端测试、真实 PostgreSQL 集成、前端构建�
 - **冲突处理**：正文和位置使用独立版本，过期修改返回 409；移动不会覆盖正文。创建按请求标识去重；点赞使用复合主键和目标状态，重试不会多加。
 - **权限与内容**：后端校验作者；Cookie 为 HttpOnly/SameSite，写请求与 WebSocket 校验 Origin。密码使用 bcrypt，会话只保存 Token 哈希。富文本采用标签白名单，移除脚本和属性。
 - **在线状态**：单进程维护连接，按用户去重；心跳检查失效连接，重连重新获取状态，退出撤销会话和连接。
-- **情绪分析**：本地中文词组、否定和转折规则，无外部模型或密钥依赖。反讽、复杂混合表达可能误判，规则在 `backend/sentiment.py`。
+- **情绪分析**：优先使用配置的大模型 API（OpenAI 兼容 Chat Completions）；未配置或接口异常时，使用支持中文的量化 DistilBERT 三分类模型。置信度低于 0.55 或推理不可用时显示独立的「待判断」，不归入中性。结果与来源随正文版本保存，浏览、拖动、点赞不重复调用；反讽及复杂转折仍可能误判。配置和资源说明见 [情绪模型](docs/sentiment.md)。
 - **智能整理**：仅改变个人视图，按实际卡片高度排列，不改他人坐标；选择新增或拖动工具会退出整理视图。
 - **规模边界**：面向单实例考核演示，推送完整快照；最多 1000 条评论，单条 1000 字。正文并发编辑提示版本冲突，拖动松手后同步最终位置。删除仅限作者、需确认且不可恢复；旧版本删除会提示重新确认，重试不会重复删除或复活贴纸。不提供多房间、短信或注册。
 
 ## 目录
 
 ```text
-backend/                  Python 服务、鉴权、数据、同步与情绪规则
+backend/                  Python 服务、鉴权、数据、同步与情绪模型适配
 frontend/                 Vue 界面与原型素材
 tests/                    后端与 PostgreSQL 回归
 scripts/browser-check.js  双用户浏览器验收

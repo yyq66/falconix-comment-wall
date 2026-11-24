@@ -15,21 +15,24 @@ from .auth import router as auth_router, seed_users
 from .database import Base, open_database
 from .comments import initialize_wall, router as comments_router
 from .realtime import Hub, router as realtime_router
+from .sentiment import get_sentiment_service
 
 
-def create_app(database_url: str | None = None, seed_demo: bool | None = None):
+def create_app(database_url: str | None = None, seed_demo: bool | None = None, *, sentiment_service=None):
     engine, factory = open_database(database_url)
+    sentiment = sentiment_service or get_sentiment_service()
 
     @asynccontextmanager
     async def lifespan(app):
         Base.metadata.create_all(engine)
         seed_users(factory)
-        initialize_wall(factory, demo=seed_demo if seed_demo is not None else os.getenv("SEED_DEMO", "1") == "1")
+        await asyncio.to_thread(initialize_wall, factory, demo=seed_demo if seed_demo is not None else os.getenv("SEED_DEMO", "1") == "1", sentiment_service=sentiment)
         yield
         engine.dispose()
 
     application = FastAPI(title="实时评论墙", version="0.1.0", lifespan=lifespan)
     application.state.db = factory
+    application.state.sentiment = sentiment
     application.state.mutation_lock = asyncio.Lock()
     application.state.hub = Hub()
     application.state.login_attempts = defaultdict(deque)

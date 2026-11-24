@@ -4,6 +4,7 @@
 **/.env*
 data
 output
+models
 .playwright-cli
 frontend/node_modules
 frontend/dist

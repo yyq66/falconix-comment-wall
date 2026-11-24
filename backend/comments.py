@@ -1,3 +1,4 @@
+import asyncio
 import json
 import math
 import os
@@ -11,8 +12,8 @@ from sqlalchemy import delete, select
 
 from .auth import public_user, require_user
 from .content import clean_content
-from .database import Comment, DeletedComment, Like, User, WallState
-from .sentiment import classify
+from .database import Comment, DeletedComment, Like, SentimentAnnotation, User, WallState
+from .sentiment import get_sentiment_service
 
 router = APIRouter(prefix="/api", tags=["comments"])
 COLORS = ["#ebe0ff", "#dffce5", "#ffdee7", "#ffead2", "#cce9ff", "#fff7d1"]
@@ -58,6 +59,7 @@ def board_snapshot(app):
     with app.state.db() as db:
         authors = {user.id: public_user(user) for user in db.scalars(select(User))}
         comments = db.scalars(select(Comment).order_by(Comment.created_at, Comment.id)).all()
+        annotations = {item.comment_id: item for item in db.scalars(select(SentimentAnnotation))}
         state = db.get(WallState, 1)
         likes = {}
         for like in db.scalars(select(Like)):
@@ -67,13 +69,28 @@ def board_snapshot(app):
              "x": c.x, "y": c.y, "rotation": c.rotation, "color": c.color,
              "created_at": c.created_at, "updated_at": c.updated_at,
              "content_version": c.content_version, "position_version": c.position_version,
-             "sentiment": c.sentiment, "liked_by": sorted(likes.get(c.id, []))} for c in comments
+             "sentiment": c.sentiment,
+             "sentiment_source": annotations[c.id].source if c.id in annotations else 'legacy',
+             "sentiment_confidence": annotations[c.id].confidence if c.id in annotations else None,
+             "liked_by": sorted(likes.get(c.id, []))} for c in comments
         ]}
 
 
 def bump_revision(db):
     state = db.get(WallState, 1)
     state.revision += 1
+
+
+def store_sentiment(db, comment, result, signature):
+    comment.sentiment = result.label
+    annotation = db.get(SentimentAnnotation, comment.id)
+    if not annotation:
+        annotation = SentimentAnnotation(comment_id=comment.id)
+        db.add(annotation)
+    annotation.content_version = comment.content_version or 1
+    annotation.signature = signature
+    annotation.source = result.source
+    annotation.confidence = result.confidence
 
 
 async def publish_board(request):
@@ -95,6 +112,14 @@ async def create_comment(body: CreateBody, request: Request):
     content_html, text = clean_content(body.content_html)
     async with request.app.state.mutation_lock:
         with request.app.state.db() as db:
+            previous = db.get(Comment, body.request_id) or db.get(DeletedComment, body.request_id)
+            if previous:
+                if previous.user_id != user.id:
+                    raise HTTPException(409, "请求标识已被使用，请重试")
+                return board_snapshot(request.app)
+    sentiment = await asyncio.to_thread(request.app.state.sentiment.classify, text)
+    async with request.app.state.mutation_lock:
+        with request.app.state.db() as db:
             deleted = db.get(DeletedComment, body.request_id)
             if deleted:
                 if deleted.user_id != user.id:
@@ -109,9 +134,11 @@ async def create_comment(body: CreateBody, request: Request):
                 raise HTTPException(409, "评论墙已满，暂时无法新增")
             now = int(time.time() * 1000)
             seed = sum(body.request_id.encode())
-            db.add(Comment(id=body.request_id, user_id=user.id, content_html=content_html, text=text,
+            comment = Comment(id=body.request_id, user_id=user.id, content_html=content_html, text=text,
                            x=body.x, y=body.y, rotation=[-10, -6, 6, 10][seed % 4],
-                           color=COLORS[seed % len(COLORS)], sentiment=classify(text), created_at=now, updated_at=now))
+                           color=COLORS[seed % len(COLORS)], sentiment=sentiment.label, created_at=now, updated_at=now)
+            db.add(comment)
+            store_sentiment(db, comment, sentiment, request.app.state.sentiment.signature)
             bump_revision(db)
             db.commit()
         return await publish_board(request)
@@ -121,6 +148,15 @@ async def create_comment(body: CreateBody, request: Request):
 async def edit_comment(comment_id: str, body: EditBody, request: Request):
     user = require_user(request)
     content_html, text = clean_content(body.content_html)
+    with request.app.state.db() as db:
+        comment = db.get(Comment, comment_id)
+        if not comment:
+            raise HTTPException(404, "贴纸不存在")
+        if comment.user_id != user.id:
+            raise HTTPException(403, "只能编辑自己的贴纸")
+        if comment.content_version != body.content_version:
+            raise HTTPException(409, "贴纸已在其他窗口修改，请重新打开后编辑")
+    sentiment = await asyncio.to_thread(request.app.state.sentiment.classify, text)
     async with request.app.state.mutation_lock:
         with request.app.state.db() as db:
             comment = db.get(Comment, comment_id)
@@ -132,23 +168,27 @@ async def edit_comment(comment_id: str, body: EditBody, request: Request):
                 raise HTTPException(409, "贴纸已在其他窗口修改，请重新打开后编辑")
             comment.content_html = content_html
             comment.text = text
-            comment.sentiment = classify(text)
             comment.content_version += 1
+            store_sentiment(db, comment, sentiment, request.app.state.sentiment.signature)
             comment.updated_at = int(time.time() * 1000)
             bump_revision(db)
             db.commit()
         return await publish_board(request)
 
 
-def initialize_wall(factory, demo=True):
+def initialize_wall(factory, demo=True, sentiment_service=None):
+    sentiment_service = sentiment_service or get_sentiment_service()
     with factory() as db:
         if db.get(WallState, 1):
             changed = False
+            annotations = {item.comment_id: item for item in db.scalars(select(SentimentAnnotation))}
             for comment in db.scalars(select(Comment)):
-                sentiment = classify(comment.text)
-                if sentiment != comment.sentiment:
-                    comment.sentiment = sentiment
-                    changed = True
+                annotation = annotations.get(comment.id)
+                if annotation and annotation.signature == sentiment_service.signature and annotation.content_version == comment.content_version and annotation.source != 'unavailable' and (not sentiment_service.api_enabled or annotation.source == 'api'):
+                    continue
+                result = sentiment_service.classify(comment.text)
+                store_sentiment(db, comment, result, sentiment_service.signature)
+                changed = True
             if changed:
                 bump_revision(db)
                 db.commit()
@@ -160,8 +200,11 @@ def initialize_wall(factory, demo=True):
                 for i, item in enumerate(json.loads(source.read_text(encoding="utf-8"))):
                     html, text = clean_content("<p>" + item["text"] + "</p>")
                     now = int(time.time() * 1000) - (8-i) * 180000
-                    db.add(Comment(id=f"seed-comment-{i+1:04}", user_id=item["user_id"], content_html=html, text=text,
-                                   x=item["x"], y=item["y"], rotation=item["rotation"], color=item["color"], sentiment=classify(text), created_at=now, updated_at=now))
+                    result = sentiment_service.classify(text)
+                    comment = Comment(id=f"seed-comment-{i+1:04}", user_id=item["user_id"], content_html=html, text=text,
+                                   x=item["x"], y=item["y"], rotation=item["rotation"], color=item["color"], sentiment=result.label, created_at=now, updated_at=now)
+                    db.add(comment)
+                    store_sentiment(db, comment, result, sentiment_service.signature)
         db.commit()
 
 

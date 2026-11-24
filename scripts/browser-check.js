@@ -172,7 +172,7 @@ async (page) => {
     await page.getByRole('button', { name: '智能整理', exact: true }).click()
     const before = await (await page.request.get(`${base}/api/board`)).json()
     const positions = await page.getByRole('article').evaluateAll(els => els.map(el => ({ group: el.dataset.sentiment, left: el.offsetLeft, top: el.offsetTop, height: el.offsetHeight })))
-    for (const category of ['positive', 'neutral', 'negative']) {
+    for (const category of ['positive', 'neutral', 'negative', 'pending']) {
       const group = positions.filter(p => p.group === category).sort((a, b) => a.top - b.top)
       for (let i = 1; i < group.length; i++) assert(group[i].left === group[0].left && group[i].top >= group[i - 1].top + group[i - 1].height + 20, '分类布局出现重叠')
     }
@@ -196,7 +196,7 @@ async (page) => {
     const after = await (await page.request.get(`${base}/api/board`)).json()
     assert(JSON.stringify(before) === JSON.stringify(after), '智能整理修改了共享数据')
     passed.push('情绪概览、六个尺寸整理居中、窄屏浏览和原视角还原')
-    // Empty categories should not leave an unused column that offsets the remaining cards.
+    // Recheck centering after the temporary layout card is removed.
     await page.request.delete(`${base}/api/comments/${neutralId}`, { data: { content_version: 1, position_version: 1 } })
     await page.locator(`[data-note-id="${neutralId}"]`).waitFor({ state: 'detached' })
     await page.getByRole('button', { name: '智能整理', exact: true }).click()
@@ -204,7 +204,7 @@ async (page) => {
       const box = el.getBoundingClientRect(), cards = [...el.querySelectorAll('.sticky')].map(n => n.getBoundingClientRect())
       return Math.abs((Math.min(...cards.map(r => r.left)) + Math.max(...cards.map(r => r.right))) / 2 - (box.left + el.clientWidth / 2))
     })
-    assert(twoColumnError < 2, '空分类导致剩余列偏移')
+    assert(twoColumnError < 2, '分类变化导致整理布局偏移')
     await page.getByRole('button', { name: '还原布局', exact: true }).click()
     await view.evaluate(el => el.scrollTo(0, 0))
 

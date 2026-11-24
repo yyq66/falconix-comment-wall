@@ -20,8 +20,8 @@ const height = ref(1010)
 const organized = ref(false)
 const showOverview = ref(true)
 const noteHeights = ref<Record<string, number>>({})
-const sentimentColors: Record<string, string> = { positive: '#dffce5', neutral: '#f5f6fa', negative: '#ffe8ef' }
-const categories = [{ key: 'positive', label: '正向' }, { key: 'neutral', label: '中性' }, { key: 'negative', label: '负面' }]
+const sentimentColors: Record<string, string> = { positive: '#dffce5', neutral: '#f5f6fa', negative: '#ffe8ef', pending: '#fff6df' }
+const categories = [{ key: 'positive', label: '正向' }, { key: 'neutral', label: '中性' }, { key: 'negative', label: '负面' }, { key: 'pending', label: '待判断' }]
 const summary = computed(() => {
   const total = board.value.comments.length
   const values = categories.map(c => ({ ...c, count: board.value.comments.filter(n => n.sentiment === c.key).length, percent: 0 }))
@@ -249,6 +249,7 @@ function nudge(event: KeyboardEvent, note: Note) {
           <article v-for="note in board.comments" :key="note.id" class="sticky" :class="{ draggable: tool === 'drag' && note.author.id === user.id, dragging: dragging === note.id }" :style="{ left: `${notePosition(note).x}px`, top: `${notePosition(note).y}px`, transform: `rotate(${organized ? 0 : note.rotation}deg)`, background: sentimentColors[note.sentiment] || sentimentColors.neutral }" :data-note-id="note.id" :data-sentiment="note.sentiment" tabindex="0" :aria-label="`${note.author.name}的贴纸：${note.text}`" @click.stop="openNote(note)" @keydown.enter.prevent="openNote(note)" @keydown="nudge($event, note)" @pointerdown="startDrag($event, note)" @pointermove="moveDrag" @pointerup="endDrag" @pointercancel="cancelDrag">
             <span class="tape" aria-hidden="true" :style="{ background: ['#ffca8e', '#9dd3ff', '#ffe68c', '#9df4ec'][note.id.charCodeAt(note.id.length - 1)! % 4] }" />
             <div class="note-body" v-html="note.content_html" />
+            <span v-if="note.sentiment === 'pending'" class="sentiment-pending" title="暂不能可靠确定这条评论的评价倾向">待判断</span>
             <footer class="note-meta"><img :src="note.author.avatar" alt="" class="note-avatar" /><div class="note-author"><span>{{ note.author.name }}</span><time :datetime="new Date(note.created_at).toISOString()">{{ formatTime(note.created_at) }}</time></div><button class="like-button" :class="{ liked: note.liked_by.includes(user.id) }" :aria-label="`${note.liked_by.includes(user.id) ? '取消点赞' : '点赞'}·${note.author.name}的贴纸`" :aria-pressed="note.liked_by.includes(user.id)" :disabled="busyLikes.has(note.id)" @pointerdown.stop @click.stop="like(note)"><Icon :name="note.liked_by.includes(user.id) ? 'heart-fill' : 'heart'" :size="16" /><span v-if="note.liked_by.length">{{ note.liked_by.length }}</span></button></footer>
           </article>
         </div>
