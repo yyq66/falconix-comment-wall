@@ -103,6 +103,16 @@ async (page) => {
     assert(JSON.stringify(before) === JSON.stringify(after), '智能整理修改了共享数据')
     passed.push('情绪概览、无重叠整理和还原')
 
+    const footers = await page.getByRole('article').evaluateAll(els => els.map(el => {
+      const footer = el.querySelector('.note-meta')
+      return { height: el.offsetHeight, bottomGap: el.offsetHeight - footer.offsetTop - footer.offsetHeight }
+    }))
+    for (const footer of footers) {
+      assert(footer.height >= 206, '短评论没有保持贴纸基础高度')
+      assert(Math.abs(footer.bottomGap - 24) <= 1, '头像、作者和点赞没有固定在贴纸底部')
+    }
+    passed.push('短评论基础高度与作者信息底部对齐')
+
     await page.context().setOffline(true)
     await page.getByText('连接中断，正在重连…', { exact: true }).waitFor()
     const negativeText = `${marker} 这个工具很差，经常闪退，令人失望。`

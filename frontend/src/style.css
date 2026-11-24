@@ -65,14 +65,14 @@ input::placeholder { color: #b7b9c1; }
 .world-sizer { position: relative; }
 .world { position: absolute; top: 0; left: 0; transform-origin: top left; }
 .tool-add .world { cursor: crosshair; }
-.sticky { position: absolute; width: 300px; min-height: 170px; padding: 24px; border-radius: 24px; box-shadow: 2px 2px 10px #0000001a; cursor: pointer; transform-origin: center; transition: box-shadow .15s; }
+.sticky { position: absolute; display: flex; flex-direction: column; width: 300px; min-height: 206px; padding: 24px; border-radius: 24px; box-shadow: 2px 2px 10px #0000001a; cursor: pointer; transform-origin: center; transition: box-shadow .15s; }
 .sticky:hover { box-shadow: 3px 5px 16px #00031126; z-index: 5; }
 .tape { position: absolute; width: 60px; height: 16px; left: 48px; top: -8px; transform: rotate(-28deg); pointer-events: none; }
-.note-body { font-size: 14px; line-height: 22px; font-weight: 500; overflow-wrap: anywhere; max-height: 330px; overflow: auto; scrollbar-width: thin; }
+.note-body { flex-shrink: 0; font-size: 14px; line-height: 22px; font-weight: 500; overflow-wrap: anywhere; max-height: 330px; overflow: auto; scrollbar-width: thin; }
 .note-body p { margin: 0 0 6px; }
 .note-body p:last-child { margin-bottom: 0; }
 .note-body ul, .note-body ol { padding-left: 20px; margin: 4px 0; }
-.note-meta { display: flex; align-items: center; margin-top: 16px; gap: 8px; min-height: 30px; }
+.note-meta { display: flex; flex-shrink: 0; align-items: center; margin-top: auto; padding-top: 16px; gap: 8px; min-height: 46px; }
 .note-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .note-author { min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; line-height: 14px; }
 .note-author time { font-size: 11px; color: #848691; white-space: nowrap; }
