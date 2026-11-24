@@ -80,6 +80,9 @@ input::placeholder { color: #b7b9c1; }
 .like-button:hover { transform: scale(1.12); }
 .like-button:disabled { opacity: .55; }
 .sticky.draggable { cursor: grab; touch-action: none; user-select: none; }
+.tool-drag, .space-pan { cursor: grab; touch-action: none; user-select: none; }
+.tool-drag .sticky, .space-pan .world, .space-pan .sticky { cursor: grab; }
+.board-scroll.panning, .panning .world, .panning .sticky { cursor: grabbing; }
 .sticky.dragging { z-index: 8; cursor: grabbing; box-shadow: 6px 10px 28px #00031128; }
 .wall-tools { position: fixed; bottom: 32px; left: calc(50% + 36px); transform: translateX(-50%); z-index: 10; display: flex; align-items: center; gap: 20px; padding: 12px; height: 60px; border-radius: 16px; background: #fff; box-shadow: 2px 2px 10px #0000001a; }
 .wall-tools > button { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }

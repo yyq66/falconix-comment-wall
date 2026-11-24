@@ -45,12 +45,16 @@ const arrangedPositions = computed(() => {
 })
 function notePosition(note: Note) { return organized.value ? arrangedPositions.value[note.id] || note : note }
 const scale = computed(() => Math.min(1, Math.max(.72, width.value / 1748)))
-const worldWidth = computed(() => Math.max(1748, ...board.value.comments.map(n => notePosition(n).x + 360)))
+const worldWidth = computed(() => Math.max(1748, width.value / scale.value + 400, ...board.value.comments.map(n => notePosition(n).x + 360)))
 const worldHeight = computed(() => Math.max(1010, ...board.value.comments.map(n => notePosition(n).y + (noteHeights.value[n.id] || 360) + 160)))
 const savedAt = computed(() => Math.max(0, ...board.value.comments.map(n => n.updated_at)))
 const busyLikes = ref(new Set<string>())
 const busyMoves = ref(new Set<string>())
 const dragging = ref<string | null>(null)
+const spacePressed = ref(false)
+const panning = ref(false)
+let pan: { pointerId: number; startX: number; startY: number; left: number; top: number; moved: boolean } | null = null
+let suppressClickUntil = 0
 let drag: { id: string; startX: number; startY: number; x: number; y: number; version: number } | null = null
 const { status, reconnect } = useRealtime({
   board: value => { applyBoard(value); pending.value = false; loadError.value = '' },
@@ -62,8 +66,17 @@ onMounted(() => {
   load()
   observer = new ResizeObserver(entries => width.value = entries[0]?.contentRect.width || 1748)
   if (viewport.value) observer.observe(viewport.value)
+  window.addEventListener('keydown', pressSpace)
+  window.addEventListener('keyup', releaseSpace)
+  window.addEventListener('blur', blurCanvas)
 })
-onBeforeUnmount(() => observer?.disconnect())
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  resetPan()
+  window.removeEventListener('keydown', pressSpace)
+  window.removeEventListener('keyup', releaseSpace)
+  window.removeEventListener('blur', blurCanvas)
+})
 onUpdated(() => {
   const next = { ...noteHeights.value }
   let changed = false
@@ -102,7 +115,7 @@ async function like(note: Note) {
   finally { busyLikes.value.delete(note.id) }
 }
 function startDrag(event: PointerEvent, note: Note) {
-  if (tool.value !== 'drag' || note.author.id !== props.user.id || event.button !== 0 || busyMoves.value.has(note.id) || (event.target as HTMLElement).closest('button')) return
+  if (spacePressed.value || tool.value !== 'drag' || note.author.id !== props.user.id || event.button !== 0 || busyMoves.value.has(note.id) || (event.target as HTMLElement).closest('button')) return
   event.preventDefault()
   const target = event.currentTarget as HTMLElement
   target.setPointerCapture(event.pointerId)
@@ -136,6 +149,50 @@ function cancelDrag() {
   if (note) { note.x = drag.x; note.y = drag.y }
   drag = null; dragging.value = null
 }
+function pressSpace(event: KeyboardEvent) {
+  const target = event.target as HTMLElement
+  if (event.code !== 'Space' || editorOpen.value || drag || event.ctrlKey || event.metaKey || event.altKey || target?.closest('input, textarea, select, [contenteditable="true"]') || (target?.closest('button, a') && !target.closest('.wall-tools'))) return
+  event.preventDefault()
+  spacePressed.value = true
+}
+function releaseSpace(event: KeyboardEvent) {
+  if (event.code === 'Space') spacePressed.value = false
+}
+function startPan(event: PointerEvent) {
+  if (event.button !== 0 || !event.isPrimary || drag || pan || (tool.value !== 'drag' && !spacePressed.value) || (event.target as HTMLElement).closest('button, input, textarea, [contenteditable="true"]')) return
+  const target = viewport.value!
+  event.preventDefault()
+  target.setPointerCapture(event.pointerId)
+  pan = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, left: target.scrollLeft, top: target.scrollTop, moved: false }
+  panning.value = true
+}
+function movePan(event: PointerEvent) {
+  if (!pan || event.pointerId !== pan.pointerId || !viewport.value) return
+  const dx = event.clientX - pan.startX, dy = event.clientY - pan.startY
+  if (Math.hypot(dx, dy) > 4) pan.moved = true
+  if (!pan.moved) return
+  viewport.value.scrollLeft = pan.left - dx
+  viewport.value.scrollTop = pan.top - dy
+}
+function endPan(event: PointerEvent) {
+  if (pan?.pointerId === event.pointerId) resetPan(false)
+}
+function resetPan(clearSpace = true) {
+  const current = pan
+  pan = null; panning.value = false
+  if (current) {
+    if (current.moved) suppressClickUntil = performance.now() + 300
+    if (viewport.value?.hasPointerCapture(current.pointerId)) viewport.value.releasePointerCapture(current.pointerId)
+  }
+  if (clearSpace) spacePressed.value = false
+}
+function blurCanvas() { resetPan(); cancelDrag() }
+function guardPanClick(event: MouseEvent) {
+  if (spacePressed.value || panning.value || performance.now() < suppressClickUntil) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+}
 function nudge(event: KeyboardEvent, note: Note) {
   if (tool.value !== 'drag' || note.author.id !== props.user.id || busyMoves.value.has(note.id)) return
   if (!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)) return
@@ -149,7 +206,7 @@ function nudge(event: KeyboardEvent, note: Note) {
 
 <template>
   <div class="board-area">
-    <div ref="viewport" class="board-scroll" :class="`tool-${tool}`">
+    <div ref="viewport" class="board-scroll" :class="[`tool-${tool}`, { 'space-pan': spacePressed, panning }]" @pointerdown="startPan" @pointermove="movePan" @pointerup="endPan" @pointercancel="endPan" @lostpointercapture="endPan" @click.capture="guardPanClick">
       <div class="world-sizer" :style="{ width: `${worldWidth * scale}px`, height: `${worldHeight * scale}px` }">
         <div class="world" aria-label="评论画布" :style="{ width: `${worldWidth}px`, height: `${worldHeight}px`, transform: `scale(${scale})` }" @click.self="addAt">
           <article v-for="note in board.comments" :key="note.id" class="sticky" :class="{ draggable: tool === 'drag' && note.author.id === user.id, dragging: dragging === note.id }" :style="{ left: `${notePosition(note).x}px`, top: `${notePosition(note).y}px`, transform: `rotate(${organized ? 0 : note.rotation}deg)`, background: sentimentColors[note.sentiment] || sentimentColors.neutral }" :data-note-id="note.id" :data-sentiment="note.sentiment" tabindex="0" :aria-label="`${note.author.name}的贴纸：${note.text}`" @click.stop="openNote(note)" @keydown.enter.prevent="openNote(note)" @keydown="nudge($event, note)" @pointerdown="startDrag($event, note)" @pointermove="moveDrag" @pointerup="endDrag" @pointercancel="cancelDrag">
@@ -169,9 +226,10 @@ function nudge(event: KeyboardEvent, note: Note) {
     <p v-if="pending" class="boot-state">正在读取评论墙…</p>
     <div v-if="loadError" class="load-error" role="alert">{{ loadError }} <button @click="load">重新连接</button></div>
     <div v-if="!pending && !loadError && !board.comments.length" class="empty-wall"><p>这里，等你的第一个想法。</p><span>选择下方「新增」，再点击画布。</span></div>
-    <nav class="wall-tools" aria-label="画布工具"><button :class="{ active: tool === 'add' }" title="新增贴纸 · 点击画布选择位置" aria-label="新增贴纸" :aria-pressed="tool === 'add'" @click="organized = false; tool = 'add'"><Icon name="add" /></button><button :class="{ active: tool === 'select' }" title="鼠标选择 · 点击贴纸查看或编辑" aria-label="鼠标选择" :aria-pressed="tool === 'select'" @click="tool = 'select'"><Icon name="cursor" /></button><button :class="{ active: tool === 'drag' }" title="拖动自己的贴纸" aria-label="拖动贴纸" :aria-pressed="tool === 'drag'" @click="organized = false; tool = 'drag'"><Icon name="hand" /></button><button class="organize-button" :aria-pressed="organized" :title="organized ? '恢复共享的自由布局' : '按情绪分列，仅整理我的视图'" @click="organized = !organized; tool = 'select'"><span aria-hidden="true">✦</span>{{ organized ? '还原布局' : '智能整理' }}</button></nav>
+    <nav class="wall-tools" aria-label="画布工具"><button :class="{ active: tool === 'add' }" title="新增贴纸 · 点击画布选择位置" aria-label="新增贴纸" :aria-pressed="tool === 'add'" @click="organized = false; tool = 'add'"><Icon name="add" /></button><button :class="{ active: tool === 'select' }" title="鼠标选择 · 点击贴纸查看或编辑" aria-label="鼠标选择" :aria-pressed="tool === 'select'" @click="tool = 'select'"><Icon name="cursor" /></button><button :class="{ active: tool === 'drag' }" title="拖动画布或自己的贴纸 · 按住空格可从任意贴纸平移画布" aria-label="拖动贴纸" :aria-pressed="tool === 'drag'" @click="organized = false; tool = 'drag'"><Icon name="hand" /></button><button class="organize-button" :aria-pressed="organized" :title="organized ? '恢复共享的自由布局' : '按情绪分列，仅整理我的视图'" @click="organized = !organized; tool = 'select'"><span aria-hidden="true">✦</span>{{ organized ? '还原布局' : '智能整理' }}</button></nav>
     <div v-if="tool === 'add'" class="tool-hint" role="status">点击画布，贴下一个新想法</div>
-    <div v-if="tool === 'drag'" class="tool-hint" role="status">拖动自己的贴纸 · 也可用方向键移动</div>
+    <div v-if="spacePressed || panning" class="tool-hint" role="status">拖动画布，松开空格恢复工具</div>
+    <div v-else-if="tool === 'drag'" class="tool-hint" role="status">拖动空白处浏览 · 拖动自己的贴纸移动位置 · 空格拖动画布</div>
     <div v-if="width < 768 && tool === 'select' && !editorOpen" class="mobile-canvas-hint">左右滑动，浏览整面评论墙</div>
     <NoteEditor v-if="editorOpen" :user="props.user" :note="selected" :position="position" :readonly="!!selected && selected.author.id !== user.id" @close="editorOpen = false" @saved="saved" />
   </div>
