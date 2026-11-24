@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, onUpdated, ref } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, onUpdated, ref } from 'vue'
 import { api, ApiError, type Board, type Note, type User } from '../api'
 import Icon from './Icon.vue'
 import NoteEditor from './NoteEditor.vue'
@@ -33,20 +33,24 @@ const summary = computed(() => {
   }
   return values
 })
+const scale = computed(() => Math.min(1, Math.max(.72, width.value / 1748)))
+const arrangedCategories = computed(() => categories.filter(c => board.value.comments.some(n => n.sentiment === c.key)))
+const arrangedWidth = computed(() => Math.max(1, arrangedCategories.value.length) * 300 + Math.max(0, arrangedCategories.value.length - 1) * 70)
+const arrangedCanvasWidth = computed(() => Math.max(arrangedWidth.value + 80, width.value / scale.value))
 const arrangedPositions = computed(() => {
   const result: Record<string, { x: number; y: number }> = {}
-  categories.forEach((category, index) => {
+  const left = (arrangedCanvasWidth.value - arrangedWidth.value) / 2
+  arrangedCategories.value.forEach((category, index) => {
     let y = 120
     board.value.comments.filter(n => n.sentiment === category.key).forEach(note => {
-      result[note.id] = { x: 260 + index * 370, y }
+      result[note.id] = { x: left + index * 370, y }
       y += (noteHeights.value[note.id] || 220) + 36
     })
   })
   return result
 })
 function notePosition(note: Note) { return organized.value ? arrangedPositions.value[note.id] || note : note }
-const scale = computed(() => Math.min(1, Math.max(.72, width.value / 1748)))
-const worldWidth = computed(() => Math.max(1748, width.value / scale.value + 400, ...board.value.comments.map(n => notePosition(n).x + 360)))
+const worldWidth = computed(() => organized.value ? arrangedCanvasWidth.value : Math.max(1748, width.value / scale.value + 400, ...board.value.comments.map(n => n.x + 360)))
 const worldHeight = computed(() => Math.max(1010, height.value / scale.value + 400, ...board.value.comments.map(n => notePosition(n).y + (noteHeights.value[n.id] || 360) + 160)))
 const savedAt = computed(() => Math.max(0, ...board.value.comments.map(n => n.updated_at)))
 const busyLikes = ref(new Set<string>())
@@ -56,6 +60,7 @@ const spacePressed = ref(false)
 const panning = ref(false)
 let pan: { pointerId: number; startX: number; startY: number; left: number; top: number; moved: boolean } | null = null
 let suppressClickUntil = 0
+let freeView = { left: 0, top: 0 }
 let drag: { id: string; startX: number; startY: number; x: number; y: number; version: number } | null = null
 const { status, reconnect } = useRealtime({
   board: value => { applyBoard(value); pending.value = false; loadError.value = '' },
@@ -116,6 +121,27 @@ function addAt(event: MouseEvent) {
 function openNote(note: Note) { if (tool.value !== 'select') return; selected.value = { ...note }; editorOpen.value = true }
 function saved(value: Board) { applyBoard(value); editorOpen.value = false; tool.value = 'select'; emit('notify', selected.value ? '修改已保存' : '你的想法已贴上墙') }
 function deleted(value: Board) { applyBoard(value); editorOpen.value = false; selected.value = null; tool.value = 'select'; emit('notify', '贴纸已删除，评论墙已同步') }
+async function toggleOrganized() {
+  resetPan()
+  if (!organized.value) {
+    freeView = { left: viewport.value?.scrollLeft || 0, top: viewport.value?.scrollTop || 0 }
+    organized.value = true; tool.value = 'select'
+    await nextTick()
+    viewport.value?.scrollTo(0, 0)
+  } else {
+    organized.value = false; tool.value = 'select'
+    await nextTick()
+    viewport.value?.scrollTo(freeView.left, freeView.top)
+  }
+}
+async function chooseTool(value: 'add' | 'select' | 'drag') {
+  if (value !== 'select' && organized.value) {
+    organized.value = false
+    await nextTick()
+    viewport.value?.scrollTo(freeView.left, freeView.top)
+  }
+  tool.value = value
+}
 const formatTime = (time: number) => new Date(time).toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-')
 async function like(note: Note) {
   if (busyLikes.value.has(note.id)) return
@@ -217,7 +243,7 @@ function nudge(event: KeyboardEvent, note: Note) {
 
 <template>
   <div class="board-area">
-    <div ref="viewport" class="board-scroll" :class="[`tool-${tool}`, { 'space-pan': spacePressed, panning }]" @pointerdown="startPan" @pointermove="movePan" @pointerup="endPan" @pointercancel="endPan" @lostpointercapture="endPan" @click.capture="guardPanClick">
+    <div ref="viewport" class="board-scroll" :class="[`tool-${tool}`, { 'space-pan': spacePressed, panning, 'organized-view': organized }]" @pointerdown="startPan" @pointermove="movePan" @pointerup="endPan" @pointercancel="endPan" @lostpointercapture="endPan" @click.capture="guardPanClick">
       <div class="world-sizer" :style="{ width: `${worldWidth * scale}px`, height: `${worldHeight * scale}px` }">
         <div class="world" aria-label="评论画布" :style="{ width: `${worldWidth}px`, height: `${worldHeight}px`, transform: `scale(${scale})` }" @click.self="addAt">
           <article v-for="note in board.comments" :key="note.id" class="sticky" :class="{ draggable: tool === 'drag' && note.author.id === user.id, dragging: dragging === note.id }" :style="{ left: `${notePosition(note).x}px`, top: `${notePosition(note).y}px`, transform: `rotate(${organized ? 0 : note.rotation}deg)`, background: sentimentColors[note.sentiment] || sentimentColors.neutral }" :data-note-id="note.id" :data-sentiment="note.sentiment" tabindex="0" :aria-label="`${note.author.name}的贴纸：${note.text}`" @click.stop="openNote(note)" @keydown.enter.prevent="openNote(note)" @keydown="nudge($event, note)" @pointerdown="startDrag($event, note)" @pointermove="moveDrag" @pointerup="endDrag" @pointercancel="cancelDrag">
@@ -237,7 +263,7 @@ function nudge(event: KeyboardEvent, note: Note) {
     <p v-if="pending" class="boot-state">正在读取评论墙…</p>
     <div v-if="loadError" class="load-error" role="alert">{{ loadError }} <button @click="load">重新连接</button></div>
     <div v-if="!pending && !loadError && !board.comments.length" class="empty-wall"><p>这里，等你的第一个想法。</p><span>选择下方「新增」，再点击画布。</span></div>
-    <nav class="wall-tools" aria-label="画布工具"><button :class="{ active: tool === 'add' }" title="新增贴纸 · 点击画布选择位置" aria-label="新增贴纸" :aria-pressed="tool === 'add'" @click="organized = false; tool = 'add'"><Icon name="add" /></button><button :class="{ active: tool === 'select' }" title="鼠标选择 · 点击贴纸查看或编辑" aria-label="鼠标选择" :aria-pressed="tool === 'select'" @click="tool = 'select'"><Icon name="cursor" /></button><button :class="{ active: tool === 'drag' }" title="拖动画布或自己的贴纸 · 按住空格可从任意贴纸平移画布" aria-label="拖动贴纸" :aria-pressed="tool === 'drag'" @click="organized = false; tool = 'drag'"><Icon name="hand" /></button><button class="organize-button" :aria-pressed="organized" :title="organized ? '恢复共享的自由布局' : '按情绪分列，仅整理我的视图'" @click="organized = !organized; tool = 'select'"><span aria-hidden="true">✦</span>{{ organized ? '还原布局' : '智能整理' }}</button></nav>
+    <nav class="wall-tools" aria-label="画布工具"><button :class="{ active: tool === 'add' }" title="新增贴纸 · 点击画布选择位置" aria-label="新增贴纸" :aria-pressed="tool === 'add'" @click="chooseTool('add')"><Icon name="add" /></button><button :class="{ active: tool === 'select' }" title="鼠标选择 · 点击贴纸查看或编辑" aria-label="鼠标选择" :aria-pressed="tool === 'select'" @click="chooseTool('select')"><Icon name="cursor" /></button><button :class="{ active: tool === 'drag' }" title="拖动画布或自己的贴纸 · 按住空格可从任意贴纸平移画布" aria-label="拖动贴纸" :aria-pressed="tool === 'drag'" @click="chooseTool('drag')"><Icon name="hand" /></button><button class="organize-button" :aria-pressed="organized" :title="organized ? '恢复共享的自由布局' : '按情绪分列，仅整理我的视图'" @click="toggleOrganized"><span aria-hidden="true">✦</span>{{ organized ? '还原布局' : '智能整理' }}</button></nav>
     <div v-if="tool === 'add' && !spacePressed" class="tool-hint" role="status">点击画布，贴下一个新想法</div>
     <div v-if="spacePressed" class="tool-hint" role="status">拖动画布，松开空格恢复工具</div>
     <div v-else-if="tool === 'drag'" class="tool-hint" role="status">拖动空白处浏览 · 拖动自己的贴纸移动位置 · 空格拖动画布</div>

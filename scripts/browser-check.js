@@ -163,6 +163,12 @@ async (page) => {
     await b.locator('.board-scroll').evaluate(el => el.scrollTo(0, 0))
     await b.getByRole('button', { name: '鼠标选择', exact: true }).click()
 
+    const neutralId = `layout-neutral-${Date.now()}`
+    const neutral = await page.request.post(`${base}/api/comments`, { data: { request_id: neutralId, content_html: '<p>明天下午三点在二楼开会</p>', x: 200, y: 400 } })
+    assert(neutral.ok(), '三列布局测试数据创建失败')
+    await page.locator(`[data-note-id="${neutralId}"]`).waitFor()
+    await view.evaluate(el => el.scrollTo(100, 80))
+    const freeView = await view.evaluate(el => ({ left: el.scrollLeft, top: el.scrollTop }))
     await page.getByRole('button', { name: '智能整理', exact: true }).click()
     const before = await (await page.request.get(`${base}/api/board`)).json()
     const positions = await page.getByRole('article').evaluateAll(els => els.map(el => ({ group: el.dataset.sentiment, left: el.offsetLeft, top: el.offsetTop, height: el.offsetHeight })))
@@ -170,10 +176,37 @@ async (page) => {
       const group = positions.filter(p => p.group === category).sort((a, b) => a.top - b.top)
       for (let i = 1; i < group.length; i++) assert(group[i].left === group[0].left && group[i].top >= group[i - 1].top + group[i - 1].height + 20, '分类布局出现重叠')
     }
+    for (const width of [2560, 1920, 1440, 1024, 768, 390]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      const layout = await view.evaluate(el => {
+        const box = el.getBoundingClientRect()
+        const cards = [...el.querySelectorAll('.sticky')].map(n => n.getBoundingClientRect())
+        const left = Math.min(...cards.map(r => r.left)), right = Math.max(...cards.map(r => r.right))
+        return { centerError: Math.abs((left + right) / 2 - (box.left + el.clientWidth / 2)), fits: right - left <= el.clientWidth, leftGap: left - box.left, overflow: el.scrollWidth > el.clientWidth + 1 }
+      })
+      if (layout.fits) assert(layout.centerError < 2 && !layout.overflow, `${width}px 整理布局未居中或有多余横向滚动`)
+      else assert(layout.leftGap >= 20 && layout.overflow, `${width}px 窄屏没有保留列间距和横向浏览`)
+    }
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     await page.getByRole('button', { name: '还原布局', exact: true }).click()
+    const restoredView = await view.evaluate(el => ({ left: el.scrollLeft, top: el.scrollTop }))
+    assert(Math.abs(restoredView.left - freeView.left) < 2 && Math.abs(restoredView.top - freeView.top) < 2, '还原布局没有恢复整理前的浏览视角')
     const after = await (await page.request.get(`${base}/api/board`)).json()
     assert(JSON.stringify(before) === JSON.stringify(after), '智能整理修改了共享数据')
-    passed.push('情绪概览、无重叠整理和还原')
+    passed.push('情绪概览、六个尺寸整理居中、窄屏浏览和原视角还原')
+    // Empty categories should not leave an unused column that offsets the remaining cards.
+    await page.request.delete(`${base}/api/comments/${neutralId}`, { data: { content_version: 1, position_version: 1 } })
+    await page.locator(`[data-note-id="${neutralId}"]`).waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: '智能整理', exact: true }).click()
+    const twoColumnError = await view.evaluate(el => {
+      const box = el.getBoundingClientRect(), cards = [...el.querySelectorAll('.sticky')].map(n => n.getBoundingClientRect())
+      return Math.abs((Math.min(...cards.map(r => r.left)) + Math.max(...cards.map(r => r.right))) / 2 - (box.left + el.clientWidth / 2))
+    })
+    assert(twoColumnError < 2, '空分类导致剩余列偏移')
+    await page.getByRole('button', { name: '还原布局', exact: true }).click()
+    await view.evaluate(el => el.scrollTo(0, 0))
 
     const footers = await page.getByRole('article').evaluateAll(els => els.map(el => {
       const footer = el.querySelector('.note-meta')
