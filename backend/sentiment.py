@@ -1,4 +1,4 @@
-"""OpenAI-compatible API first, then an offline model that supports Chinese."""
+"""OpenAI-compatible API first, with the original Chinese rules as fallback."""
 from collections import OrderedDict
 from dataclasses import dataclass
 from functools import lru_cache
@@ -6,14 +6,12 @@ import hashlib
 import json
 import logging
 import os
-from pathlib import Path
 import threading
 import time
 
 import httpx
+from .sentiment_rules import classify as classify_rules
 
-ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = json.loads((ROOT / 'backend/sentiment-model.json').read_text(encoding='utf8'))
 LABELS = {'positive', 'negative', 'neutral'}
 logger = logging.getLogger(__name__)
 
@@ -25,58 +23,14 @@ class SentimentResult:
     confidence: float | None = None
 
 
-class LocalClassifier:
-    def __init__(self, directory=None):
-        self.directory = Path(directory or os.getenv('SENTIMENT_MODEL_DIR', str(ROOT / 'models/sentiment')))
-        self.session = None
-        self.tokenizer = None
-        self.labels = None
-
-    def predict(self, text):
-        import numpy as np
-        import onnxruntime as ort
-        from tokenizers import Tokenizer
-
-        if self.session is None:
-            for remote, expected in MANIFEST['files'].items():
-                path = self.directory / Path(remote).name
-                if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
-                    raise RuntimeError('Local model missing or invalid; run setup downloader')
-            options = ort.SessionOptions()
-            options.intra_op_num_threads = 1
-            options.inter_op_num_threads = 1
-            session = ort.InferenceSession(str(self.directory / 'model_quantized.onnx'), sess_options=options, providers=['CPUExecutionProvider'])
-            tokenizer = Tokenizer.from_file(str(self.directory / 'tokenizer.json'))
-            tokenizer.enable_truncation(max_length=512, stride=64)
-            labels = json.loads((self.directory / 'config.json').read_text(encoding='utf8'))['id2label']
-            if set(labels.values()) != LABELS:
-                raise RuntimeError('Unexpected local model label mapping')
-            self.session, self.tokenizer, self.labels = session, tokenizer, labels
-        encoding = self.tokenizer.encode(text)
-        probabilities = np.zeros(3, dtype=np.float64)
-        total = 0
-        for chunk in [encoding, *encoding.overflowing]:
-            inputs = {'input_ids': np.array([chunk.ids], dtype=np.int64), 'attention_mask': np.array([chunk.attention_mask], dtype=np.int64)}
-            logits = self.session.run(None, {item.name: inputs[item.name] for item in self.session.get_inputs()})[0][0]
-            scores = np.exp(logits - logits.max()); scores /= scores.sum()
-            weight = max(1, len(chunk.ids) - 2)
-            probabilities += scores * weight; total += weight
-        probabilities /= total
-        index = int(probabilities.argmax())
-        confidence = float(probabilities[index])
-        label = self.labels[str(index)] if confidence >= .55 else 'pending'
-        return SentimentResult(label, 'local', confidence)
-
-
 class SentimentService:
-    def __init__(self, *, api_key=None, base_url=None, model=None, local=None, client=None):
+    def __init__(self, *, api_key=None, base_url=None, model=None, client=None):
         self.api_key = (api_key if api_key is not None else os.getenv('SENTIMENT_API_KEY', '')).strip()
         self.base_url = (base_url if base_url is not None else os.getenv('SENTIMENT_API_BASE_URL', '')).strip().rstrip('/')
         self.model = (model if model is not None else os.getenv('SENTIMENT_API_MODEL', '')).strip()
         self.api_enabled = bool(self.api_key and self.base_url and self.model)
-        self.local = local or LocalClassifier()
         self.client = client
-        config = json.dumps([self.base_url, self.model, self.api_enabled, MANIFEST['revision'], 'v1-confidence55'], sort_keys=True)
+        config = json.dumps([self.base_url, self.model, self.api_enabled, 'original-chinese-rules-v1'], sort_keys=True)
         self.signature = hashlib.sha256(config.encode()).hexdigest()
         self.cache = OrderedDict()
         self.lock = threading.Lock()
@@ -104,7 +58,7 @@ class SentimentService:
             return request(client)
 
     def classify(self, text):
-        # Serial inference bounds CPU/memory and coalesces identical submissions.
+        # Coalesce identical submissions and bound concurrent API requests.
         with self.lock:
             if text in self.cache:
                 result = self.cache.pop(text); self.cache[text] = result
@@ -115,14 +69,10 @@ class SentimentService:
                     result = self._api(text)
                 except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError):
                     self.api_retry_at = time.monotonic() + 60
-                    logger.warning('Sentiment API unavailable; using local inference')
+                    logger.warning('Sentiment API unavailable; using Chinese rules')
             if result is None:
-                try:
-                    result = self.local.predict(text)
-                except Exception:
-                    logger.warning('Local sentiment inference unavailable')
-                    result = SentimentResult('pending', 'unavailable')
-            if result.label != 'pending' and (not self.api_enabled or result.source == 'api'):
+                result = SentimentResult(classify_rules(text), 'rules')
+            if not self.api_enabled or result.source == 'api':
                 self.cache[text] = result
                 if len(self.cache) > 1024:
                     self.cache.popitem(last=False)

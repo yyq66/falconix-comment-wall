@@ -45,6 +45,15 @@ async (page) => {
     await signIn(b, '王美丽 · demo_b')
     await page.getByLabel('2 人在线', { exact: true }).waitFor()
     passed.push('两个独立账号登录与在线成员')
+    const initialBoard = await (await page.request.get(`${base}/api/board`)).json()
+    assert(initialBoard.comments.every(n => ['positive', 'neutral', 'negative'].includes(n.sentiment) && n.sentiment_source === 'rules'), '未配置 API 时没有使用三类规则分类')
+    assert(await page.getByText('待判断', { exact: true }).count() === 0, '界面仍显示待判断')
+    assert(await page.getByRole('region', { name: '情绪概览', exact: true }).count() === 0, '情绪概览没有默认收起')
+    await page.getByRole('button', { name: '情绪概览', exact: true }).click()
+    await page.getByRole('region', { name: '情绪概览', exact: true }).waitFor()
+    await page.getByRole('button', { name: '收起情绪概览', exact: true }).click()
+    assert(await page.getByRole('region', { name: '情绪概览', exact: true }).count() === 0, '情绪概览无法再次收起')
+    await page.getByRole('button', { name: '情绪概览', exact: true }).click()
 
     const accountButton = page.getByRole('button', { name: '账号菜单', exact: true })
     const accountPanel = page.getByRole('region', { name: '当前登录账号' })
@@ -172,7 +181,7 @@ async (page) => {
     await page.getByRole('button', { name: '智能整理', exact: true }).click()
     const before = await (await page.request.get(`${base}/api/board`)).json()
     const positions = await page.getByRole('article').evaluateAll(els => els.map(el => ({ group: el.dataset.sentiment, left: el.offsetLeft, top: el.offsetTop, height: el.offsetHeight })))
-    for (const category of ['positive', 'neutral', 'negative', 'pending']) {
+    for (const category of ['positive', 'neutral', 'negative']) {
       const group = positions.filter(p => p.group === category).sort((a, b) => a.top - b.top)
       for (let i = 1; i < group.length; i++) assert(group[i].left === group[0].left && group[i].top >= group[i - 1].top + group[i - 1].height + 20, '分类布局出现重叠')
     }

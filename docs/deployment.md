@@ -26,7 +26,7 @@ Railway 项目为 `falconix-comment-wall`，服务为 `comment-wall`，部署区
 
 ## 应用
 
-Docker 构建会下载并校验本地情绪模型，约 139 MB 数据，不需要显卡。默认未配置 API 时运行本地模型，建议为完整服务预留约 1 GB 内存。若需大模型优先，在后端设置 `SENTIMENT_API_BASE_URL`、`SENTIMENT_API_MODEL`、`SENTIMENT_API_KEY` 并重启，详见 [情绪模型说明](sentiment.md)。
+Docker 不下载或加载本地情绪模型。默认未配置 API 时使用原中文分类规则；若需大模型优先，在后端设置 `SENTIMENT_API_BASE_URL`、`SENTIMENT_API_MODEL`、`SENTIMENT_API_KEY` 并重启，接口不可用时自动回退规则，详见 [情绪分类说明](sentiment.md)。
 
 在项目目录使用已登录的 Railway 官方工具：
 

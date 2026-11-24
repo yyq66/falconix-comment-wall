@@ -16,7 +16,7 @@
 
 ## 工程与验证
 
-Python FastAPI + Vue 3/TypeScript，Neon PostgreSQL 持久化，WebSocket 同步。账号无注册；正文支持六种简单富文本格式。情绪使用本地中文规则，无外部模型费用；智能整理为个人视图，不改其他用户的共享位置。
+Python FastAPI + Vue 3/TypeScript，Neon PostgreSQL 持久化，WebSocket 同步。账号无注册；正文支持六种简单富文本格式。情绪优先使用配置的 API，未配置或异常时使用中文规则；当前演示未配 API，无外部模型费用。智能整理为个人视图，不改其他用户的共享位置。
 
 源码附分阶段 Git 历史、README、部署步骤和回归脚本。已通过 27 项后端检查（含真实 PostgreSQL）、11 组完整浏览器验收、生产 Docker 构建启动及实际公网双用户同步和重启数据保留验证。
 

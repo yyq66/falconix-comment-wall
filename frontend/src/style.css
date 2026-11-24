@@ -83,8 +83,6 @@ input::placeholder { color: #b7b9c1; }
 .note-body { flex-shrink: 0; font-size: 14px; line-height: 22px; font-weight: 500; overflow-wrap: anywhere; max-height: 330px; overflow: auto; scrollbar-width: thin; }
 .note-body p { margin: 0 0 6px; }
 .note-body p:last-child { margin-bottom: 0; }
-.sentiment-pending { align-self: flex-start; margin-top: 8px; padding: 2px 7px; border-radius: 5px; background: #fff; color: #957021; font-size: 10px; }
-.emotion-bar > .pending { background: #d5a44e; }
 .note-body ul, .note-body ol { padding-left: 20px; margin: 4px 0; }
 .note-meta { display: flex; flex-shrink: 0; align-items: center; margin-top: auto; padding-top: 16px; gap: 8px; min-height: 46px; }
 .note-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
