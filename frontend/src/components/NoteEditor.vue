@@ -85,10 +85,10 @@ async function remove() {
       <p v-if="error" class="form-error" role="alert">{{ error }}</p>
       <div class="delete-actions"><button ref="cancelDeleteButton" class="cancel-delete" :disabled="busy" @click="cancelDelete">取消删除</button><button class="confirm-delete" :disabled="busy" @click="remove">{{ busy ? '正在删除…' : '确认删除' }}</button></div>
     </div>
-    <template v-else>
+    <div v-show="!confirmingDelete">
     <div v-if="!readonly" class="format-toolbar" role="toolbar" aria-label="文字格式"><button v-for="tool in tools" :key="tool.icon" type="button" class="icon-button" :class="{ active: editor?.isActive(tool.active) }" :aria-label="tool.label" :aria-pressed="editor?.isActive(tool.active)" :title="tool.label" @click="tool.command"><Icon :name="tool.icon" :size="16" /></button></div>
     <EditorContent :editor="editor" class="editor-content" />
     <footer class="editor-footer"><span v-if="readonly && note">{{ note.author.name }} · {{ new Date(note.created_at).toLocaleString('zh-CN', { hour12: false }) }}</span><span v-else :class="{ over: length > 1000 }">{{ length }} / 1000 <span class="keyboard-hint">· Ctrl + Enter 发表</span></span><p v-if="error" class="form-error" role="alert">{{ error }}</p><button v-if="!readonly" class="primary-button" :disabled="busy || !length || length > 1000" @click="save">{{ busy ? '正在保存…' : note ? '保存修改' : '马上发表' }}</button><button v-if="note && !readonly && note.author.id === user.id" ref="deleteButton" class="delete-note-button" :disabled="busy" @click="confirmDelete">删除贴纸</button></footer>
-    </template>
+    </div>
   </dialog>
 </template>
