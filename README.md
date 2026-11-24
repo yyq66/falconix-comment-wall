@@ -4,7 +4,7 @@
 
 ## 快速体验
 
-在线地址：完成托管平台配置后补充。源码及自动检查保存在私有仓库 `yyq66/falconix-comment-wall`。
+在线地址：**https://comment-wall-production-357fe9fd.up.railway.app** 。已于 2026-11-24 部署并验证。源码及自动检查保存在私有仓库 `yyq66/falconix-comment-wall`。
 
 | 演示账号 | 显示名称 | 默认密码 |
 | --- | --- | --- |
@@ -63,7 +63,7 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 
 ## 免费部署
 
-推荐 Render 免费 Web Service + Neon 免费 PostgreSQL，使用一个 HTTPS 地址。仓库提供生产 `Dockerfile` 和 `render.yaml`。
+实际部署采用 Railway 的免绑卡免费试用额度 + Neon 免费 PostgreSQL，使用一个 HTTPS 地址。应用和数据库均位于新加坡，应用保持单实例。仓库提供生产 `Dockerfile`、`railway.json`，另保留替代平台的 `render.yaml`。
 
 | 环境变量 | 作用 |
 | --- | --- |
@@ -73,7 +73,7 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 | `SEED_DEMO=1` | 首次加入演示评论，后续不重复插入或覆盖 |
 | `DEMO_PASSWORD` | 可选，仅首次创建用户时生效；登录页快捷填入使用默认密码 |
 
-详细操作和线上验收见[部署说明](docs/deployment.md)。免费应用可能休眠，首次打开约需一分钟；生产环境必须使用外部数据库。
+详细操作和线上验收见[部署说明](docs/deployment.md)。Railway 当前账号显示 30 天或 $5 用量试用额度，以先耗尽者为准；没有绑卡或选择付费套餐，不承诺无限期免费运行。生产环境使用外部数据库，已验证重启和区域迁移后数据保留。
 
 ## 测试
 
@@ -92,7 +92,7 @@ npx --yes --package @playwright/cli@0.1.25 playwright-cli -s=wall open http://12
 npx --yes --package @playwright/cli@0.1.25 playwright-cli -s=wall run-code --filename=scripts/browser-check.js
 ```
 
-该流程实际操作两个用户，覆盖错误登录、六种富文本格式、内容编辑、权限、点赞、拖动、实时同步、断网补齐、多标签页及七个响应式断点。它会创建少量带“验收”标记的评论，请在测试或演示环境执行。
+该流程实际操作两个用户，覆盖错误登录、六种富文本格式、内容编辑、权限、点赞、拖动、实时同步、断网补齐、多标签页及七个响应式断点。它会创建少量带“验收”标记的评论，请在测试或演示环境执行。线上双用户接口与真实 WebSocket 验收可运行 `python scripts/online-check.py https://comment-wall-production-357fe9fd.up.railway.app`；随后在服务重启后增加 `--verify-only`，检查已保存状态。
 
 GitHub 自动检查运行后端测试、真实 PostgreSQL 集成、前端构建、生产容器构建和启动，并对容器执行双用户浏览器回归。分阶段提交和失败修复见[开发记录](docs/development.md)。
 

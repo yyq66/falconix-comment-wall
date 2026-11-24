@@ -22,9 +22,14 @@
 | 易于部署 | 单 Docker 服务、Render 免费配置、生产必须使用外部 PostgreSQL；CI 构建并启动生产镜像 |
 | 基本文档 | README、部署步骤、账号说明、开发与失败修复记录、此验收表 |
 | 分阶段 Git 管理 | 每个功能及修复先提交，再执行对应测试，通过后推进；交付包包含 Git 历史 bundle |
-| 免费公网部署 | 尚未完成；等待 Render 与 Neon 账号授权，之后仍需对实际 HTTPS 地址重新验收 |
+| 免费公网部署 | 已完成：Railway 免绑卡试用额度 + Neon 免费数据库；实际 HTTPS 地址已验证登录、双用户实时同步、作者权限和重启持久化 |
 
 ## 已有验证证据
+
+- 线上地址：https://comment-wall-production-357fe9fd.up.railway.app 。2026-11-24 通过 HTTPS 健康检查、页面加载、真实双用户 WebSocket 新增/编辑/移动/点赞、重复点赞幂等和越权拒绝。
+- 实际重启线上服务后，`scripts/online-check.py --verify-only` 证明正文、坐标、情绪、点赞保留；迁移到新加坡单实例后再次验证通过。
+- 用户指定的 ego-browser 实际完成线上登录、加载所有便签、接收实时变化、智能整理、还原和刷新；线上截图见 `screenshots/online-wall.png`。
+- Railway 当前为 Trial 额度，界面显示 30 天或 $5 用量，以先耗尽者为准；不是无限期无额度限制的免费服务。
 
 - [GitHub 45195819646](https://github.com/yyq66/falconix-comment-wall/actions/runs/45195819646)：25 项后端检查（含真实 PostgreSQL）、前端生产构建、Docker 构建和启动全部通过。
 - [GitHub 45198246755](https://github.com/yyq66/falconix-comment-wall/actions/runs/45198246755)：上述检查及对 PostgreSQL 生产容器的完整双用户浏览器回归全部通过。
