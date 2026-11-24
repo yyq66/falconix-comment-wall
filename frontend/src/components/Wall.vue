@@ -232,8 +232,8 @@ function nudge(event: KeyboardEvent, note: Note) {
     <div v-if="loadError" class="load-error" role="alert">{{ loadError }} <button @click="load">重新连接</button></div>
     <div v-if="!pending && !loadError && !board.comments.length" class="empty-wall"><p>这里，等你的第一个想法。</p><span>选择下方「新增」，再点击画布。</span></div>
     <nav class="wall-tools" aria-label="画布工具"><button :class="{ active: tool === 'add' }" title="新增贴纸 · 点击画布选择位置" aria-label="新增贴纸" :aria-pressed="tool === 'add'" @click="organized = false; tool = 'add'"><Icon name="add" /></button><button :class="{ active: tool === 'select' }" title="鼠标选择 · 点击贴纸查看或编辑" aria-label="鼠标选择" :aria-pressed="tool === 'select'" @click="tool = 'select'"><Icon name="cursor" /></button><button :class="{ active: tool === 'drag' }" title="拖动画布或自己的贴纸 · 按住空格可从任意贴纸平移画布" aria-label="拖动贴纸" :aria-pressed="tool === 'drag'" @click="organized = false; tool = 'drag'"><Icon name="hand" /></button><button class="organize-button" :aria-pressed="organized" :title="organized ? '恢复共享的自由布局' : '按情绪分列，仅整理我的视图'" @click="organized = !organized; tool = 'select'"><span aria-hidden="true">✦</span>{{ organized ? '还原布局' : '智能整理' }}</button></nav>
-    <div v-if="tool === 'add'" class="tool-hint" role="status">点击画布，贴下一个新想法</div>
-    <div v-if="spacePressed || panning" class="tool-hint" role="status">拖动画布，松开空格恢复工具</div>
+    <div v-if="tool === 'add' && !spacePressed" class="tool-hint" role="status">点击画布，贴下一个新想法</div>
+    <div v-if="spacePressed" class="tool-hint" role="status">拖动画布，松开空格恢复工具</div>
     <div v-else-if="tool === 'drag'" class="tool-hint" role="status">拖动空白处浏览 · 拖动自己的贴纸移动位置 · 空格拖动画布</div>
     <div v-if="width < 768 && tool === 'select' && !editorOpen" class="mobile-canvas-hint">左右滑动，浏览整面评论墙</div>
     <NoteEditor v-if="editorOpen" :user="props.user" :note="selected" :position="position" :readonly="!!selected && selected.author.id !== user.id" @close="editorOpen = false" @saved="saved" />
