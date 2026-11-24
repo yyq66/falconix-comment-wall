@@ -1,5 +1,13 @@
 # 免费部署与交付
 
+## 2026-11-24 实际部署更新
+
+当前账号下 Render 和 Northflank 均要求绑卡，未继续使用。Hugging Face 当前新建 Docker Space 要求付费会员，也未采用。实际选择 Railway 的免绑卡免费/试用额度方案，数据库继续使用已创建并验证的 Neon 免费 PostgreSQL。
+
+Railway 项目为 `falconix-comment-wall`，服务为 `comment-wall`。`railway.json` 指定 Docker 构建和数据库健康检查；应用通过平台提供的 HTTPS 域名访问。上传使用官方 CLI，数据库连接串通过标准输入设置为平台变量，不进入源码。额度耗尽后服务可能停止，因此提交前需要核对账户显示的剩余额度，不承诺无限期免费运行。
+
+以下 Render 说明作为替代平台配置参考保留，实际账号如要求绑卡则不适用。
+
 目标：Render 免费 Web Service 托管 FastAPI 和已构建前端，Neon 免费 PostgreSQL 保存数据。一个 HTTPS 地址同时提供页面、接口和 WebSocket，无需自购服务器或域名。
 
 ## 账号准备
